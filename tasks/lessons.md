@@ -18,6 +18,40 @@ Journal des retours d'expérience, pièges rencontrés, décisions.
 **Solution :** Ajouter `.astype("datetime64[ns]")` explicitement après `pd.to_datetime()` dans `_coerce_dtypes`.
 **Pour la prochaine fois :** Sur pandas 3.0, toujours être explicite sur la précision temporelle si on déclare un dtype cible dans une spec. Ne pas faire confiance au défaut. Même règle pour pyarrow qui peut écrire en `[us]` sans qu'on le remarque.
 
+## 2026-04-08 — P2 T6 : 3 findings sur les vraies données (79K rows)
+
+**Contexte :** Smoke test manuel de la pipeline `ingest → segment → kpi` après T5 sur les 79 200 lignes réelles.
+
+### Finding 1 — sample 500 vs réel, l'inversion
+Sur le sample 500 (477 clients) : K-Means donne 2 737 € (vs tranche_age 3 667 €) — **plus petit**.
+Sur les 79K (20 681 clients) : K-Means donne **123 773 €** (vs tranche_age 81 K€) — **+52 %**.
+**Raison :** en dessous d'un seuil de taille, K-Means ne peut pas capturer l'hétérogénéité inter-ville (il y a trop peu de clients par cluster × ville). Sur le sample, les 6 clusters × 6 villes = 36 cellules, avec ~13 clients en moyenne par cellule → bruit dominant. Sur 79K, les cellules ont des centaines de clients → vraie structure émerge.
+**Leçon :** ne jamais valider le hero chiffre sur un sample < 5 000 clients. Toujours courir sur le full dataset.
+
+### Finding 2 — silhouette_score OOM à 20K clients
+`sklearn.metrics.silhouette_score` sans `sample_size` alloue une matrice O(n²). À 20 681 clients, ~3.4 GB → `MemoryError`.
+**Fix :** `silhouette_score(Xs, labels, sample_size=min(2000, len(feats)), random_state=random_state)` dans `src/segmentation/kmeans.py`.
+**Leçon :** toute métrique sklearn qui prend une matrice de distances en paramètre doit être subsamplée au-delà de ~5K points.
+
+### Finding 3 — labels K-Means dégénérés sans bons axes
+Mes axes initiaux (age × conv × part_premium_plus) produisaient 5 clusters sur 6 avec le label identique `"45-60 NON-LIBRE essentiel"`. Les vrais axes discriminants de K-Means sur ce dataset sont :
+- **Sexe** : certains clusters sont 100 % femmes ou 100 % hommes (pas de mixte)
+- **Loyauté** : un cluster spécifique capture les "fidèles" (n_achats=3.6, mois_entre=18)
+- **Panier moyen** : varie de 29 € (outlier singleton) à 225 € (top premium)
+- L'âge est quasi constant (45-56 dans tous les clusters)
+- Conv_libre n'est majoritaire que dans 1 cluster sur 6
+
+**Fix :** refonte de `label_archetype_from_centroid` pour utiliser 5 axes (age × panier_tier × sexe × conv × loyauté). Nouveaux labels bien distincts :
+```
+0: 45-60 premium mixte NON-LIBRE       n=1934  9.8% CA
+1: 45-60 mid femmes NON-LIBRE          n=3535 13.2%
+2: 45-60 mid hommes NON-LIBRE          n=6710 28.8%  ← plus gros cluster
+3: 45-60 mid mixte NON-LIBRE fidèle    n=3121 25.2%  ← les fidèles !
+4: 45-60 mid femmes LIBRE              n=5380 23.1%
+5: 45-60 bas femmes NON-LIBRE          n=   1  0.0%  ← outlier
+```
+**Leçon :** ne pas choisir les axes de labelling en amont. Fitter K-Means d'abord, examiner les centroids (`n_clients_par_cluster`, variance intra-axe), PUIS construire le labelling sur les axes qui varient vraiment.
+
 ## 2026-04-08 — P1 clos : hero chiffre 81 K€/an (vs pitch target 800 K€)
 **Contexte :** Fin du plan P1. Pipeline CLI end-to-end exécutée sur les 79 200 lignes réelles.
 **Problème :** Le chiffre hero `opportunite_upsell_annuelle` produit par H5 sur les vraies données vaut **81 K€/an** (~0.9 % du CA total 9.1 M€), soit ~10× moins que la valeur illustrative "800 K€" utilisée dans le brainstorming.

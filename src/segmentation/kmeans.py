@@ -53,7 +53,14 @@ def fit_kmeans(
     if n_clusters >= len(feats) or len(set(labels_arr)) < 2:
         sil = None
     else:
-        sil = float(silhouette_score(Xs, labels_arr))
+        # Subsample on large datasets: silhouette_score allocates an
+        # O(n^2) distance matrix otherwise — ~3 GiB at 20K clients.
+        sample_size = min(2000, len(feats))
+        sil = float(
+            silhouette_score(
+                Xs, labels_arr, sample_size=sample_size, random_state=random_state
+            )
+        )
 
     return {
         "labels": labels,
