@@ -4,17 +4,18 @@
 
 - [x] Initialisation de la structure du projet
 - [x] **P1 — Ingestion + KPI engine** (2026-04-08) — 15 commits, 68 tests green, CLI end-to-end validée sur 79 200 lignes réelles. Hero chiffre : 81 K€/an (à re-calibrer en P2 avec K-Means).
-- [ ] **P2 — Segmentation K-Means + Rules engine / diagnostics** (next)
+- [x] **P2 — Segmentation K-Means + Rules engine / diagnostics** (2026-04-08) — 13 commits, 111 tests green, CLI `refresh` umbrella (ingest → segment → kpi → diagnose) validée E2E sur `sample_500.xlsx`. Hero chiffre re-calibré sur 79K : **123 773 €/an** (+52 % vs P1). Voir `lessons.md` pour les 3 findings (sample-size, silhouette OOM, axes de labelling).
+- [ ] **P3 — Simulation Mesa** (next)
 
 ## À faire (backlog)
 
-### P2 — Segmentation + Rules
-- [ ] Feature vector par client (`src/segmentation/features.py`)
-- [ ] K-Means clustering (6-10 archétypes) + labelling
-- [ ] Export `archetypes.json`
-- [ ] Ré-intégrer la segmentation K-Means dans H5 (remplacer `tranche_age`)
-- [ ] Rules engine déclaratif (`src/rules/engine.py` + `rules.yaml`)
-- [ ] Export `diagnostics.json` (findings par magasin)
+### P2 — Segmentation + Rules (DONE)
+- [x] Feature vector par client (`src/segmentation/features.py`)
+- [x] K-Means clustering (6-10 archétypes) + labelling
+- [x] Export `archetypes.json`
+- [x] Ré-intégrer la segmentation K-Means dans H5 (remplacer `tranche_age`)
+- [x] Rules engine déclaratif (`src/rules/engine.py` + `rules.yaml`)
+- [x] Export `diagnostics.json` (findings par magasin)
 
 ### P3 — Simulation Mesa
 - [ ] ClientAgent + StoreAgent + VisaudioModel
