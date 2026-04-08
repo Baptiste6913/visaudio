@@ -44,3 +44,17 @@ def test_write_kpis_json_roundtrip(tiny_sales, tmp_path: Path):
     loaded = json.loads(out.read_text(encoding="utf-8"))
     assert "cadrage" in loaded
     assert "hero" in loaded
+
+
+def test_pipeline_uses_segment_id_when_present(tiny_sales):
+    df = tiny_sales.copy()
+    # Simulate a segmented Parquet: assign segment_id 0/1 per client_id parity
+    df["segment_id"] = df["id_client"] % 2
+    payload = build_kpis_payload(df)
+    assert payload["hero"]["segment_column_used"] == "segment_id"
+
+
+def test_pipeline_falls_back_to_tranche_age(tiny_sales):
+    # tiny_sales fixture has no segment_id column
+    payload = build_kpis_payload(tiny_sales)
+    assert payload["hero"]["segment_column_used"] == "tranche_age"

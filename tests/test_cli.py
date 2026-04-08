@@ -38,3 +38,28 @@ def test_cli_kpi_writes_json(tmp_path: Path):
     payload = json.loads(kpis.read_text(encoding="utf-8"))
     assert "hero" in payload
     assert "opportunite_upsell_annuelle" in payload["hero"]
+
+
+def test_cli_segment_produces_archetypes_and_segmented_parquet(tmp_path: Path):
+    runner = CliRunner()
+    parquet = tmp_path / "sales.parquet"
+    runner.invoke(cli, ["ingest", "--source", str(SAMPLE), "--out", str(parquet)])
+    out_parq = tmp_path / "sales_segmented.parquet"
+    out_arch = tmp_path / "archetypes.json"
+    res = runner.invoke(
+        cli,
+        [
+            "segment",
+            "--parquet", str(parquet),
+            "--out-parquet", str(out_parq),
+            "--out-archetypes", str(out_arch),
+            "--n-clusters", "3",
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    assert out_parq.exists()
+    assert out_arch.exists()
+    df = pd.read_parquet(out_parq)
+    assert "segment_id" in df.columns
+    payload = json.loads(out_arch.read_text(encoding="utf-8"))
+    assert payload["n_archetypes"] == 3

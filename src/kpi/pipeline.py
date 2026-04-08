@@ -38,9 +38,10 @@ def _build_meta(df: pd.DataFrame) -> dict:
 
 
 def _build_hero(df: pd.DataFrame) -> dict:
-    h5 = hero.compute_opportunite_upsell(df, segment_col="tranche_age")
-    # Convert the tuple-keyed by_store_segment to a JSON-safe list of records
-    # for the dashboard drill-down waterfall (Page 2 per-magasin).
+    # Prefer `segment_id` (from K-Means in P2) when available; fall back to
+    # `tranche_age` for backward compatibility with P1-only Parquet files.
+    segment_col = "segment_id" if "segment_id" in df.columns else "tranche_age"
+    h5 = hero.compute_opportunite_upsell(df, segment_col=segment_col)
     opp_par_mag_seg = [
         {"magasin": ville, "segment": segment, "opportunite": opp}
         for (segment, ville), opp in h5["by_store_segment"].items()
@@ -52,6 +53,7 @@ def _build_hero(df: pd.DataFrame) -> dict:
             {"segment": k, "opportunite": v} for k, v in h5["by_segment"].items()
         ],
         "opportunite_par_magasin_segment": opp_par_mag_seg,
+        "segment_column_used": segment_col,
         "mix_gamme_par_magasin": hero.mix_gamme_par_magasin(df),
         "mix_premium_plus_par_magasin": hero.part_premium_plus_par_magasin(df),
         "ecart_au_top_du_reseau": hero.ecart_au_top_du_reseau(df),

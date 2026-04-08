@@ -16,6 +16,7 @@ import pandas as pd
 from src.ingestion.excel_parser import read_visaudio_excel
 from src.ingestion.normalization import normalize_dataframe, write_parquet
 from src.kpi.pipeline import write_kpis_json
+from src.segmentation.pipeline import run_segmentation, write_archetypes_json
 
 
 @click.group()
@@ -71,6 +72,55 @@ def kpi(parquet: Path, out: Path) -> None:
     click.echo(f"Loaded {len(df)} rows.")
     write_kpis_json(df, out)
     click.echo(f"Wrote {out}")
+
+
+@cli.command()
+@click.option(
+    "--parquet",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="Path to the normalized Parquet (from `ingest`).",
+)
+@click.option(
+    "--out-parquet",
+    type=click.Path(path_type=Path),
+    default=Path("data/processed/sales.parquet"),
+    help="Path to the output segmented Parquet (overwrites the input by default).",
+)
+@click.option(
+    "--out-archetypes",
+    type=click.Path(path_type=Path),
+    default=Path("data/processed/archetypes.json"),
+    help="Path to the output archetypes.json.",
+)
+@click.option(
+    "--n-clusters",
+    type=int,
+    default=None,
+    help="Number of clusters (default: auto by silhouette in [6, 10]).",
+)
+def segment(
+    parquet: Path,
+    out_parquet: Path,
+    out_archetypes: Path,
+    n_clusters: int | None,
+) -> None:
+    """Run K-Means segmentation and add `segment_id` to the Parquet."""
+    click.echo(f"Loading {parquet}…")
+    df = pd.read_parquet(parquet)
+    click.echo(f"Loaded {len(df)} rows, {df['id_client'].nunique()} clients.")
+
+    click.echo("Running segmentation…")
+    df_seg, archetypes = run_segmentation(df, n_clusters=n_clusters)
+    click.echo(
+        f"Found {archetypes['n_archetypes']} archetypes. "
+        f"Writing {out_parquet} and {out_archetypes}…"
+    )
+
+    from src.ingestion.normalization import write_parquet
+    write_parquet(df_seg, out_parquet)
+    write_archetypes_json(archetypes, out_archetypes)
+    click.echo("Done.")
 
 
 if __name__ == "__main__":
