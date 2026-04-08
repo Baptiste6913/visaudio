@@ -1,12 +1,13 @@
 """Shared DataFrame fixtures for KPI unit tests.
 
-The tiny_sales fixture is a hand-crafted 16-row dataset covering:
+The tiny_sales fixture is a hand-crafted 13-row dataset covering:
   - 3 villes (Avranches, Cherbourg, Carentan)
   - 2 segments (via tranche_age: '45-60' and '60-75')
   - 3 familles (verre, monture, solaire)
   - 4 gammes (all including PRESTIGE)
   - 2 conventionnements (LIBRE, CSS)
-  - 3 distinct clients, with repeats (client 1 renews, client 2 cross-sells)
+  - 5 distinct clients; client 1 has 2 factures (renewal upgrade PREMIUM → PRESTIGE)
+    and is the only client eligible for retention-based KPIs.
 
 KPI expected values are documented in each test file.
 """

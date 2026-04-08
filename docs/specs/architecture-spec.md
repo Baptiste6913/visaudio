@@ -231,34 +231,39 @@ Notations : `fa` = `famille_article`, `fid` = `id_facture_rang`, `cid` = `id_cli
 
 ### 5.3 La formule HERO en détail — H5
 
-**Définition mathématique** :
+**Définition mathématique** (formule per-cell, cohérente avec la décomposition H6) :
 
-Soit `S` l'ensemble des segments client (clusters K-Means), `V` l'ensemble des magasins. Pour chaque segment `s ∈ S` :
+Soit `S` l'ensemble des segments client (clusters K-Means ou `tranche_age` en P1), `V` l'ensemble des magasins. Pour chaque couple `(s, v) ∈ S × V` :
 
 ```
-panier_actuel(s)    = mean(ca_ht_article | est_verre, segment = s)
-panier_top_q75(s)   = quantile_0.75 over V of
-                        mean(ca_ht_article | est_verre, segment = s, ville = v)
-gap(s)              = max(0, panier_top_q75(s) - panier_actuel(s))
-n_ventes_verre(s)   = count(rows | est_verre, segment = s)
-opportunite(s)      = gap(s) * n_ventes_verre(s)
+panier_sv(s, v)     = mean(ca_ht_article | est_verre, segment = s, ville = v)
+n_ventes_sv(s, v)   = count(rows | est_verre, segment = s, ville = v)
 
-TOTAL_OPPORTUNITE   = sum over s of opportunite(s) / annees_data
+panier_top_q75(s)   = quantile_0.75 over V of panier_sv(s, *)
+
+gap(s, v)           = max(0, panier_top_q75(s) - panier_sv(s, v))
+opp(s, v)           = gap(s, v) * n_ventes_sv(s, v)
+
+TOTAL_OPPORTUNITE   = sum over (s, v) of opp(s, v) / annees_data
 ```
 
 **Propriétés** :
-- Le `max(0, ...)` garantit qu'un segment au-dessus du top-quartile n'est pas compté négativement
-- `annees_data` est calculé sur la plage `[min(date_facture), max(date_facture)]`
-- Le chiffre est **défendable** : c'est uniquement de l'arithmétique sur les données historiques, aucune projection
+- Le gap est calculé **par (segment, ville)**, pas au niveau segment global. Ceci garantit que les villes qui **sur-performent** sur un segment donné contribuent 0 (au lieu de réduire artificiellement le potentiel des villes qui sous-performent).
+- Le `max(0, ...)` verrouille cette propriété : aucune cellule (s, v) ne peut avoir de contribution négative.
+- La **décomposition naturelle** par magasin (H6) et par segment émerge directement : `opp_mag(v) = sum over s of opp(s, v) / annees_data`, et `opp_segment(s) = sum over v of opp(s, v) / annees_data`.
+- Le **total** `TOTAL_OPPORTUNITE = sum_v opp_mag(v) = sum_s opp_segment(s)` — addition identique dans les deux sens.
+- `annees_data` est calculé sur la plage `[min(date_facture), max(date_facture)]`.
+- Le chiffre est **défendable** : uniquement de l'arithmétique sur les données historiques, aucune projection.
 
 **Unité affichée** : K€/an (arrondi à 10 K€ près).
 
-**Variante par magasin (H6)** :
+**Variante per-segment (alternative descriptive, non retenue)** :
 ```
-opp_mag(v) = sum over s of max(0, panier_top_q75(s) - panier_mag_segment(v, s))
-             * n_ventes_verre_mag_segment(v, s)
-             / annees_data
+panier_actuel(s)    = mean(ca_ht_article | est_verre, segment = s)
+gap_segment(s)      = max(0, panier_top_q75(s) - panier_actuel(s))
+opp_segment_alt(s)  = gap_segment(s) * n_ventes_segment(s)
 ```
+Cette formulation alternative donne un chiffre total différent (car le gap est calculé sur la moyenne globale du segment, pas par ville) et **ne se décompose pas proprement par magasin**. On l'écarte au profit de la formule per-cell ci-dessus.
 
 ### 5.4 Structure JSON produit par le pipeline KPI
 

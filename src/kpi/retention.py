@@ -65,22 +65,36 @@ def clients_dormants(df: pd.DataFrame, threshold_months: int = 24) -> int:
 def cohort_retention_curve(df: pd.DataFrame) -> dict[str, dict[str, float]]:
     """R5 — for each cohort month (month of the client's first purchase),
     share of clients still active at +6, +12, +24 months.
+
+    A client is "still active" in a (+N-month) window if they have at least
+    one purchase strictly after their first purchase and within the window.
     """
+    if df.empty:
+        return {}
     first_buy = df.groupby("id_client")["date_facture"].min()
     cohorts = first_buy.dt.to_period("M").astype("string")
+
+    # Pre-index all dates per client ONCE (dict[int, np.ndarray]) to avoid
+    # rescanning the whole DataFrame inside the triple loop. This is the hot
+    # path on 80K rows / 20K clients.
+    dates_per_client = {
+        int(cid): sub["date_facture"].to_numpy()
+        for cid, sub in df.groupby("id_client", sort=False)
+    }
+
     out: dict[str, dict[str, float]] = {}
-    for cohort, clients in cohorts.groupby(cohorts):
-        cohort_clients = clients.index.tolist()
+    for cohort, clients_in_cohort in cohorts.groupby(cohorts):
+        cohort_clients = clients_in_cohort.index.tolist()
         cohort_start = first_buy[cohort_clients].min()
         stats: dict[str, float] = {}
         for months in (6, 12, 24):
             window_end = cohort_start + pd.Timedelta(days=months * 30)
             still_active = 0
             for cid in cohort_clients:
-                client_dates = df.loc[df["id_client"] == cid, "date_facture"]
-                if (client_dates > cohort_start).any() and (
-                    client_dates <= window_end
-                ).any():
+                client_dates = dates_per_client[int(cid)]
+                has_later = (client_dates > cohort_start).any()
+                has_within = (client_dates <= window_end).any()
+                if has_later and has_within:
                     still_active += 1
             stats[f"M+{months}"] = float(still_active / len(cohort_clients))
         out[str(cohort)] = stats

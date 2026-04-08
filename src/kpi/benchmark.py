@@ -42,7 +42,11 @@ def ecart_mediane_reseau(
     if metric != "ca_par_magasin":
         raise NotImplementedError(f"metric={metric!r} not supported in P1")
     ca = pd.Series(ca_par_magasin(df))
+    if ca.empty:
+        return {}
     median = ca.median()
+    if median == 0 or pd.isna(median):
+        return {k: 0.0 for k in ca.index}
     return {k: float((v - median) / median) for k, v in ca.items()}
 
 

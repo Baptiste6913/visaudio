@@ -90,13 +90,14 @@ def taux_upgrade_renouvellement(df: pd.DataFrame) -> float:
     )
     upgrades = 0
     eligible = 0
-    for client_id, group in per_facture.groupby("id_client", observed=True):
+    # per_facture is already sorted by date_facture above; groupby preserves
+    # row order within each group, so no inner re-sort is needed.
+    for _client_id, group in per_facture.groupby("id_client", observed=True):
         if len(group) < 2:
             continue
         eligible += 1
-        sorted_g = group.sort_values("date_facture")
-        first_gamme = sorted_g["gamme_verre_visaudio"].iloc[-2]
-        second_gamme = sorted_g["gamme_verre_visaudio"].iloc[-1]
+        first_gamme = group["gamme_verre_visaudio"].iloc[-2]
+        second_gamme = group["gamme_verre_visaudio"].iloc[-1]
         if pd.isna(first_gamme) or pd.isna(second_gamme):
             continue
         if second_gamme > first_gamme:  # ordered categorical

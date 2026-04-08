@@ -39,12 +39,19 @@ def _build_meta(df: pd.DataFrame) -> dict:
 
 def _build_hero(df: pd.DataFrame) -> dict:
     h5 = hero.compute_opportunite_upsell(df, segment_col="tranche_age")
+    # Convert the tuple-keyed by_store_segment to a JSON-safe list of records
+    # for the dashboard drill-down waterfall (Page 2 per-magasin).
+    opp_par_mag_seg = [
+        {"magasin": ville, "segment": segment, "opportunite": opp}
+        for (segment, ville), opp in h5["by_store_segment"].items()
+    ]
     return {
         "opportunite_upsell_annuelle": h5["total_eur_per_year"],
         "opportunite_par_magasin": h5["by_store"],
         "opportunite_par_segment": [
             {"segment": k, "opportunite": v} for k, v in h5["by_segment"].items()
         ],
+        "opportunite_par_magasin_segment": opp_par_mag_seg,
         "mix_gamme_par_magasin": hero.mix_gamme_par_magasin(df),
         "mix_premium_plus_par_magasin": hero.part_premium_plus_par_magasin(df),
         "ecart_au_top_du_reseau": hero.ecart_au_top_du_reseau(df),
