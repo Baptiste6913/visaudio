@@ -160,5 +160,67 @@ def diagnose(kpis: Path, rules: Path, out: Path) -> None:
     )
 
 
+@cli.command()
+@click.option(
+    "--source",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="Path to the raw Excel file.",
+)
+@click.option(
+    "--parquet",
+    type=click.Path(path_type=Path),
+    default=Path("data/processed/sales.parquet"),
+)
+@click.option(
+    "--archetypes",
+    type=click.Path(path_type=Path),
+    default=Path("data/processed/archetypes.json"),
+)
+@click.option(
+    "--kpis",
+    type=click.Path(path_type=Path),
+    default=Path("data/processed/kpis.json"),
+)
+@click.option(
+    "--diagnostics",
+    type=click.Path(path_type=Path),
+    default=Path("data/processed/diagnostics.json"),
+)
+@click.option(
+    "--n-clusters",
+    type=int,
+    default=None,
+    help="Number of K-Means clusters (default: auto).",
+)
+@click.pass_context
+def refresh(
+    ctx: click.Context,
+    source: Path,
+    parquet: Path,
+    archetypes: Path,
+    kpis: Path,
+    diagnostics: Path,
+    n_clusters: int | None,
+) -> None:
+    """Run ingest → segment → kpi → diagnose in sequence."""
+    ctx.invoke(ingest, source=source, out=parquet)
+    ctx.invoke(
+        segment,
+        parquet=parquet,
+        out_parquet=parquet,
+        out_archetypes=archetypes,
+        n_clusters=n_clusters,
+    )
+    ctx.invoke(kpi, parquet=parquet, out=kpis)
+    ctx.invoke(
+        diagnose,
+        kpis=kpis,
+        rules=Path("src/rules/rules.yaml"),
+        out=diagnostics,
+    )
+    click.echo("Refresh complete.")
+
+
 if __name__ == "__main__":
     cli()

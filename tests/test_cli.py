@@ -80,3 +80,28 @@ def test_cli_segment_produces_archetypes_and_segmented_parquet(tmp_path: Path):
     assert "segment_id" in df.columns
     payload = json.loads(out_arch.read_text(encoding="utf-8"))
     assert payload["n_archetypes"] == 3
+
+
+def test_cli_refresh_runs_full_chain(tmp_path: Path):
+    runner = CliRunner()
+    parquet = tmp_path / "sales.parquet"
+    archetypes = tmp_path / "archetypes.json"
+    kpis = tmp_path / "kpis.json"
+    diag = tmp_path / "diagnostics.json"
+    res = runner.invoke(
+        cli,
+        [
+            "refresh",
+            "--source", str(SAMPLE),
+            "--parquet", str(parquet),
+            "--archetypes", str(archetypes),
+            "--kpis", str(kpis),
+            "--diagnostics", str(diag),
+            "--n-clusters", "3",
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    assert parquet.exists()
+    assert archetypes.exists()
+    assert kpis.exists()
+    assert diag.exists()
