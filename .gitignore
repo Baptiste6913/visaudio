@@ -21,6 +21,9 @@ data/processed/*.parquet
 data/processed/*.json
 !data/processed/.gitkeep
 
+# Superpowers brainstorming session artifacts
+.superpowers/
+
 # OS / IDE
 .DS_Store
 Thumbs.db
