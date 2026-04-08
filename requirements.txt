@@ -1,0 +1,8 @@
+pandas>=2.2
+openpyxl>=3.1
+pydantic>=2.6
+mesa>=2.3
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pytest>=8.0
+pytest-cov>=5.0

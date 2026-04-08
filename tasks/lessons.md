@@ -1,0 +1,13 @@
+# Lessons learned
+
+Journal des retours d'expérience, pièges rencontrés, décisions.
+
+## Format
+
+```
+## YYYY-MM-DD — Titre court
+**Contexte :** ...
+**Problème :** ...
+**Solution / décision :** ...
+**Pour la prochaine fois :** ...
+```
