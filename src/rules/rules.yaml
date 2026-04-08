@@ -27,7 +27,7 @@
   recommendation: "Cross-sell monture à l'achat verre — levier immédiat"
 
 - id: PORTEFEUILLE_VIEILLISSANT
-  scope: store
+  scope: network
   severity: warning
   condition: "part_clients_60_plus > 0.40"
   finding: "{part_clients_60_plus:.0%} de clients 60+ — risque de rétention à moyen terme"

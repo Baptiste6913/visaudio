@@ -40,6 +40,23 @@ def test_cli_kpi_writes_json(tmp_path: Path):
     assert "opportunite_upsell_annuelle" in payload["hero"]
 
 
+def test_cli_diagnose_writes_diagnostics(tmp_path: Path):
+    runner = CliRunner()
+    parquet = tmp_path / "sales.parquet"
+    kpis = tmp_path / "kpis.json"
+    diag = tmp_path / "diagnostics.json"
+    runner.invoke(cli, ["ingest", "--source", str(SAMPLE), "--out", str(parquet)])
+    runner.invoke(cli, ["kpi", "--parquet", str(parquet), "--out", str(kpis)])
+    res = runner.invoke(
+        cli,
+        ["diagnose", "--kpis", str(kpis), "--out", str(diag)],
+    )
+    assert res.exit_code == 0, res.output
+    assert diag.exists()
+    payload = json.loads(diag.read_text(encoding="utf-8"))
+    assert "_network" in payload
+
+
 def test_cli_segment_produces_archetypes_and_segmented_parquet(tmp_path: Path):
     runner = CliRunner()
     parquet = tmp_path / "sales.parquet"

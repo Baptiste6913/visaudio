@@ -17,6 +17,7 @@ from src.ingestion.excel_parser import read_visaudio_excel
 from src.ingestion.normalization import normalize_dataframe, write_parquet
 from src.kpi.pipeline import write_kpis_json
 from src.segmentation.pipeline import run_segmentation, write_archetypes_json
+from src.rules.diagnostics import build_diagnostics_payload, write_diagnostics_json
 
 
 @click.group()
@@ -121,6 +122,42 @@ def segment(
     write_parquet(df_seg, out_parquet)
     write_archetypes_json(archetypes, out_archetypes)
     click.echo("Done.")
+
+
+@cli.command()
+@click.option(
+    "--kpis",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="Path to kpis.json (from `kpi`).",
+)
+@click.option(
+    "--rules",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path("src/rules/rules.yaml"),
+    help="Path to rules.yaml.",
+)
+@click.option(
+    "--out",
+    type=click.Path(path_type=Path),
+    default=Path("data/processed/diagnostics.json"),
+    help="Path to the output diagnostics.json.",
+)
+def diagnose(kpis: Path, rules: Path, out: Path) -> None:
+    """Evaluate rules against kpis.json and write diagnostics.json."""
+    import json as _json
+
+    click.echo(f"Loading {kpis}…")
+    kpis_payload = _json.loads(kpis.read_text(encoding="utf-8"))
+    payload = build_diagnostics_payload(kpis_payload, rules_path=rules)
+    write_diagnostics_json(payload, out)
+    # Report one-line summary
+    stores = [k for k in payload if not k.startswith("_") and k != "generated_at"]
+    total_findings = sum(len(payload[k]["findings"]) for k in stores)
+    total_findings += len(payload.get("_network", {}).get("findings", []))
+    click.echo(
+        f"Wrote {out} — {len(stores)} stores, {total_findings} total findings."
+    )
 
 
 if __name__ == "__main__":
