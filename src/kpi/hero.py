@@ -126,3 +126,86 @@ def ecart_au_top_du_reseau(df: pd.DataFrame) -> dict[str, float]:
         return {}
     top = max(shares.values())
     return {k: float(v - top) for k, v in shares.items()}
+
+
+# ------------- H5 (HERO) -------------
+def compute_opportunite_upsell(
+    df: pd.DataFrame,
+    segment_col: str,
+    years_divisor: float | None = None,
+) -> dict:
+    """H5 — total annual upsell opportunity in €.
+
+    For each (segment, ville), compute the mean verre ticket. For each segment,
+    take the Q75 across villes. The gap between a ville's actual mean and the
+    segment's Q75 (clamped to ≥ 0) times the number of verre sales in that
+    (segment, ville) gives the opportunity for that cell. Sum over all cells,
+    divide by the span of the data in years.
+
+    Args:
+        df: normalized sales DataFrame.
+        segment_col: column to use as segment (in P1: 'tranche_age'; in P2: K-Means).
+        years_divisor: override the span-of-data divisor (used for unit tests).
+            If None, computed from min/max date_facture.
+
+    Returns:
+        {
+          "total_eur_per_year": float,
+          "by_segment":          dict[str, float],
+          "by_store":            dict[str, float],
+          "by_store_segment":    dict[(str, str), float],
+        }
+    """
+    verres = df[df["est_verre"]] if "est_verre" in df.columns else pd.DataFrame()
+
+    if verres.empty:
+        return {
+            "total_eur_per_year": 0.0,
+            "by_segment": {},
+            "by_store": {},
+            "by_store_segment": {},
+        }
+
+    # 1. Per (segment, ville) mean ticket and count
+    grp = verres.groupby([segment_col, "ville"], observed=True)["ca_ht_article"]
+    per_sv_mean = grp.mean()
+    per_sv_count = grp.size()
+
+    # 2. Per-segment Q75 of those per-ville means
+    q75_by_seg = per_sv_mean.groupby(level=0, observed=True).quantile(0.75)
+
+    # 3. Compute the gap cell by cell, clamped at 0
+    by_store_segment: dict[tuple[str, str], float] = {}
+    for (seg, ville), mean_ticket in per_sv_mean.items():
+        ref = q75_by_seg.loc[seg]
+        gap = max(0.0, float(ref) - float(mean_ticket))
+        n = int(per_sv_count.loc[(seg, ville)])
+        by_store_segment[(str(seg), str(ville))] = gap * n
+
+    # 4. Compute years divisor
+    if years_divisor is None:
+        span_days = (
+            df["date_facture"].max() - df["date_facture"].min()
+        ).days
+        years_divisor = max(span_days / 365.0, 1e-9)
+
+    # 5. Aggregate
+    total = sum(by_store_segment.values()) / years_divisor
+
+    by_segment: dict[str, float] = {}
+    for (seg, _ville), val in by_store_segment.items():
+        by_segment[seg] = by_segment.get(seg, 0.0) + val / years_divisor
+
+    by_store: dict[str, float] = {}
+    for (_seg, ville), val in by_store_segment.items():
+        by_store[ville] = by_store.get(ville, 0.0) + val / years_divisor
+
+    # divide by_store_segment too for symmetry
+    by_store_segment_normed = {k: v / years_divisor for k, v in by_store_segment.items()}
+
+    return {
+        "total_eur_per_year": float(total),
+        "by_segment": by_segment,
+        "by_store": by_store,
+        "by_store_segment": by_store_segment_normed,
+    }

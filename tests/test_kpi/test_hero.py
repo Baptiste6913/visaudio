@@ -86,3 +86,83 @@ def test_ecart_au_top_du_reseau(tiny_sales):
     assert ecart["Avranches"] == pytest.approx(0.0)
     assert ecart["Carentan"] == pytest.approx(-1.0)
     assert ecart["Cherbourg"] == pytest.approx(310 / 460 - 1.0)
+
+
+# ========== H5 (HERO) ==========
+from src.kpi.hero import compute_opportunite_upsell
+
+
+def test_h5_on_tiny_fixture(tiny_sales):
+    """Walkthrough of the H5 formula on the tiny fixture.
+
+    Per-(segment, ville) verre ticket mean:
+      45-60: Avranches=250 (2 rows), Cherbourg=310 (1), Carentan=90 (1)
+      60-75: Avranches=220 (1), Cherbourg=150 (1)
+
+    Q75 per segment:
+      45-60: Q75 of [90, 250, 310] = 280
+      60-75: Q75 of [150, 220] = 202.5
+
+    Gap × count per cell (years_divisor=1):
+      (45-60, Avranches): 30 × 2 = 60
+      (45-60, Cherbourg): 0
+      (45-60, Carentan):  190 × 1 = 190
+      (60-75, Avranches): 0
+      (60-75, Cherbourg): 52.5 × 1 = 52.5
+
+    Grand total = 302.5
+    """
+    res = compute_opportunite_upsell(
+        tiny_sales, segment_col="tranche_age", years_divisor=1.0
+    )
+    assert res["total_eur_per_year"] == pytest.approx(302.5, abs=0.5)
+
+
+def test_h5_by_store_decomposition(tiny_sales):
+    res = compute_opportunite_upsell(
+        tiny_sales, segment_col="tranche_age", years_divisor=1.0
+    )
+    assert res["by_store"]["Carentan"] == pytest.approx(190.0, abs=0.5)
+    assert res["by_store"]["Avranches"] == pytest.approx(60.0, abs=0.5)
+    assert res["by_store"]["Cherbourg"] == pytest.approx(52.5, abs=0.5)
+
+
+def test_h5_by_segment_sum_matches_total(tiny_sales):
+    res = compute_opportunite_upsell(
+        tiny_sales, segment_col="tranche_age", years_divisor=1.0
+    )
+    assert sum(res["by_segment"].values()) == pytest.approx(
+        res["total_eur_per_year"], rel=1e-6
+    )
+
+
+def test_h5_handles_empty_df():
+    import pandas as pd
+    empty = pd.DataFrame(
+        columns=["ville", "tranche_age", "est_verre", "ca_ht_article"]
+    )
+    res = compute_opportunite_upsell(empty, segment_col="tranche_age", years_divisor=1.0)
+    assert res["total_eur_per_year"] == 0.0
+    assert res["by_segment"] == {}
+    assert res["by_store"] == {}
+
+
+def test_h5_divides_by_annees_data_when_none(tiny_sales):
+    res = compute_opportunite_upsell(tiny_sales, segment_col="tranche_age")
+    # The tiny fixture spans 2024-02-10 to 2024-12-15 → ~0.84 years
+    # So total_eur_per_year is LARGER than when years_divisor=1
+    res1 = compute_opportunite_upsell(
+        tiny_sales, segment_col="tranche_age", years_divisor=1.0
+    )
+    assert res["total_eur_per_year"] > res1["total_eur_per_year"]
+
+
+def test_h5_never_goes_negative(tiny_sales):
+    res = compute_opportunite_upsell(
+        tiny_sales, segment_col="tranche_age", years_divisor=1.0
+    )
+    assert res["total_eur_per_year"] >= 0
+    for v in res["by_segment"].values():
+        assert v >= 0
+    for v in res["by_store"].values():
+        assert v >= 0
