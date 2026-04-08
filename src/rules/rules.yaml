@@ -1,0 +1,48 @@
+# Visaudio diagnostic rules — evaluated against the kpis payload per spec §7
+#
+# Each rule is a record matching the `Rule` pydantic model. The `condition`
+# is a Python expression evaluated in a context dict whose keys depend on
+# the rule's scope:
+#   - store:   ville, ca_total, panier_moyen, mix_essentiel, mix_premium_plus,
+#              ratio_monture_verre, network_mix_essentiel, network_ratio_monture_verre,
+#              part_clients_60_plus
+#   - network: ca_total, hhi_conventionnement, exposition_top3, n_clients
+#   - segment: (not used in P2 Phase 1)
+#
+# The `finding` and `recommendation` strings are Python format strings that
+# can interpolate any context key.
+
+- id: MIX_ESSENTIEL_EXCESS
+  scope: store
+  severity: warning
+  condition: "mix_essentiel > 0.45 and mix_essentiel > 1.3 * network_mix_essentiel"
+  finding: "Mix ESSENTIEL surreprésenté ({mix_essentiel:.0%} vs {network_mix_essentiel:.0%} réseau)"
+  recommendation: "Formation upsell prioritaire sur le segment CSP+"
+
+- id: CROSS_SELL_MONTURE_LOW
+  scope: store
+  severity: critical
+  condition: "ratio_monture_verre < 0.25"
+  finding: "Sous-attachement monture (ratio {ratio_monture_verre:.2f} vs {network_ratio_monture_verre:.2f} réseau)"
+  recommendation: "Cross-sell monture à l'achat verre — levier immédiat"
+
+- id: PORTEFEUILLE_VIEILLISSANT
+  scope: store
+  severity: warning
+  condition: "part_clients_60_plus > 0.40"
+  finding: "{part_clients_60_plus:.0%} de clients 60+ — risque de rétention à moyen terme"
+  recommendation: "Campagne de recrutement sur segment 30-45 ans"
+
+- id: CONVENTIONNEMENT_CONCENTRATION
+  scope: network
+  severity: warning
+  condition: "hhi_conventionnement > 2500"
+  finding: "Concentration conventionnement élevée (HHI {hhi_conventionnement:.0f}) — dépendance aux réseaux de soins"
+  recommendation: "Stratégie de diversification sur les clients LIBRE"
+
+- id: EXPOSITION_TOP3_EXCESS
+  scope: network
+  severity: critical
+  condition: "exposition_top3 > 0.60"
+  finding: "{exposition_top3:.0%} du CA concentré sur 3 conventionnements"
+  recommendation: "Négociation ou désengagement progressif du plus gros partenaire"
