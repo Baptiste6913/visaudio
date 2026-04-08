@@ -278,7 +278,7 @@ Le fichier `data/processed/kpis.json` a une structure **pivotable** par le front
     "panier_moyen": 196,
     "clients_uniques": 21340,
     "par_famille": { "OPT_VERRE": 7100000, "OPT_MONTURE": 1820000, "OPT_SOLAIRE": 180000 },
-    "par_magasin": { "Avranches": 1300000, "Carentan": ... },
+    "par_magasin": { "Avranches": 1300000, "Carentan-les-Marais": ... },
     "par_mois": [ { "mois": "2023-01", "ca": 210000 }, ... ]
   },
   "hero": {
@@ -288,7 +288,7 @@ Le fichier `data/processed/kpis.json` a une structure **pivotable** par le front
       { "segment_id": 3, "segment_label": "50-65 CSP+", "opportunite": 340000 },
       ...
     ],
-    "mix_premium_plus_par_magasin": { "Avranches": 0.18, "Carentan": 0.32, ... }
+    "mix_premium_plus_par_magasin": { "Avranches": 0.18, "Carentan-les-Marais": 0.32, ... }
   },
   "retention": { ... },
   "benchmark": { ... },
@@ -408,7 +408,7 @@ Pour chaque magasin, un tableau de findings triés par sévérité, sérialisé 
       { "id": "MIX_ESSENTIEL_EXCESS", "severity": "warning", "message": "...", "recommendation": "..." }
     ]
   },
-  "Carentan": { ... }
+  "Carentan-les-Marais": { ... }
 }
 ```
 

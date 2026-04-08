@@ -7,7 +7,7 @@ description: Référence du modèle de données optique Visaudio. Déclenche qua
 
 ## Colonnes du fichier source (19 colonnes)
 
-- **Ville** : `str` — 6 valeurs (Avranches, Carentan, Cherbourg, Coutances, Rampan, Yquelon)
+- **Ville** : `str` — 6 valeurs exactes : `Avranches`, `Carentan-les-Marais`, `Cherbourg-en-Cotentin`, `Coutances`, `Rampan`, `Yquelon`. Attention : les noms complets (`-les-Marais`, `-en-Cotentin`) doivent être utilisés partout, pas les formes abrégées. Volumes (source complète) : Cherbourg-en-Cotentin 30 306, Avranches 15 687, Rampan 15 013, Carentan-les-Marais 10 274, Yquelon 7 101, **Coutances 819 (très petit — tolérances statistiques relâchées)**.
 - **Implantation** : `str` — type de lieu (CENTRE-VILLE, PERIPHERIE, ZONE COMMERCIALE)
 - **Secteur économique** : `str` — (Tertiaire, etc.)
 - **datefacture** : `datetime` — date de la facture (2023-01 à 2025-12)
