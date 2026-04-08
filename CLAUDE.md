@@ -1,49 +1,45 @@
-# CLAUDE.md
+# Visaudio Optique Analytics
 
-Ce fichier fournit le contexte au modèle Claude Code lorsqu'il travaille sur ce dépôt.
+## WHAT
+Outil d'analyse et de simulation multi-agents pour un réseau de 6 magasins
+d'optique en Normandie (client Visaudio). Données : ~80K lignes de factures
+optique (verres, montures, solaire) de 2023 à 2025.
 
-## Projet : Visaudio
-
-Plateforme d'analyse et de simulation pour la filière optique (audition / vision).
-L'objectif est d'ingérer des données Excel brutes, de calculer des KPIs métier,
-d'appliquer des règles de diagnostic, et de simuler des scénarios via des agents.
+## WHY
+Transformer l'Excel descriptif en outil prédictif/prescriptif :
+- KPIs dérivés que le client n'a pas (upsell, LTV, saisonnalité, dépendance conventionnement)
+- Simulation multi-agents pour tester des scénarios business (what-if)
+- Diagnostic automatique par magasin avec recommandations
+- 100% local, zéro API externe (Phase 1)
 
 ## Stack
+- Backend : Python 3.11+, pandas, Mesa 3 (agent-based modeling), scikit-learn
+- Frontend : React + TypeScript + Vite + Tailwind + Recharts + shadcn/ui
+- Pas de BDD en phase 1 : JSON/Parquet comme store
+- (Futur) FastAPI + PostgreSQL + Claude API
 
-- **Backend / data** : Python 3.11+, pandas, openpyxl, pydantic, Mesa (simulation multi-agents)
-- **Tests** : pytest
-- **API (futur)** : FastAPI
-- **Dashboard** : React + TypeScript + Tailwind + Recharts
-
-## Arborescence
-
-- `data/raw/` : fichiers Excel sources (ne pas modifier à la main)
-- `data/processed/` : données nettoyées (JSON/Parquet)
-- `data/samples/` : échantillons pour tests rapides
-- `src/ingestion/` : parseurs Excel
-- `src/kpi/` : moteur de KPIs
-- `src/rules/` : moteur de règles / diagnostic
-- `src/simulation/` : agents Mesa
-- `src/api/` : endpoints FastAPI (à venir)
-- `dashboard/` : front React
-- `tests/` : suite pytest (miroir de `src/`)
-- `docs/` : specs et architecture
-- `tasks/todo.md` : backlog actif
-- `tasks/lessons.md` : retours d'expérience
+## HOW
+- Build backend : `pip install -e .` ou `pip install -r requirements.txt`
+- Build frontend : `cd dashboard && npm install && npm run dev`
+- Tests : `pytest tests/ -v`
+- Lint : `ruff check src/` et `cd dashboard && npm run lint`
 
 ## Conventions
+- Python : PEP8, type hints obligatoires, docstrings Google style
+- React : functional components, hooks, pas de class components
+- Nommage fichiers : snake_case Python, kebab-case React
+- Commits : conventional commits (feat:, fix:, chore:, docs:, test:)
+- Toujours vérifier que les tests passent avant de commit
 
-- Toute nouvelle feature commence par une spec dans `docs/specs/`
-- TDD : écrire le test avant l'implémentation
-- Ne jamais committer de données sensibles patients dans `data/raw/`
-- Les échantillons de `data/samples/` sont anonymisés
+## Architecture clé
+- `src/ingestion/` : lit l'Excel, produit un DataFrame normalisé
+- `src/kpi/` : calcule les KPIs dérivés par magasin
+- `src/rules/` : moteur de règles heuristique pour le diagnostic
+- `src/simulation/` : modèle Mesa avec agents Client et Magasin
+- `dashboard/` : React app, consomme les JSON produits par le backend
 
-## Commandes utiles
-
-```bash
-# Tests
-pytest tests/ -v
-
-# Dashboard
-cd dashboard && npm run dev
-```
+## Règles critiques
+- JAMAIS de données client en clair dans les commits (anonymiser)
+- Toujours travailler avec les échantillons dans `data/samples/` pour le dev
+- Si un test échoue après un changement, corriger AVANT de continuer
+- Documenter toute leçon dans `tasks/lessons.md` après correction
