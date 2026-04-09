@@ -256,5 +256,22 @@ def refresh(
     click.echo("Refresh complete.")
 
 
+@cli.command()
+@click.option("--host", type=str, default="127.0.0.1", help="Bind host.")
+@click.option("--port", type=int, default=8000, help="Bind port.")
+@click.option("--data-dir", type=click.Path(exists=True, path_type=Path),
+              default=Path("data/processed"), help="Path to processed data.")
+@click.option("--no-prewarm", is_flag=True, default=False,
+              help="Skip pre-warming of scenarios at startup.")
+def serve(host: str, port: int, data_dir: Path, no_prewarm: bool) -> None:
+    """Start the FastAPI backend server."""
+    import uvicorn
+    from src.api.main import create_app
+
+    app = create_app(data_dir=data_dir, enable_prewarm=not no_prewarm)
+    click.echo(f"Starting Visaudio API on {host}:{port} (data: {data_dir})")
+    uvicorn.run(app, host=host, port=port)
+
+
 if __name__ == "__main__":
     cli()

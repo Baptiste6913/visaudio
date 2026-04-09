@@ -90,6 +90,14 @@ def test_simulate_help():
     assert "scenario" in result.output.lower()
 
 
+def test_serve_help():
+    from click.testing import CliRunner
+    from src.cli import cli
+    result = CliRunner().invoke(cli, ["serve", "--help"])
+    assert result.exit_code == 0
+    assert "port" in result.output.lower()
+
+
 def test_cli_refresh_runs_full_chain(tmp_path: Path):
     runner = CliRunner()
     parquet = tmp_path / "sales.parquet"
