@@ -82,6 +82,14 @@ def test_cli_segment_produces_archetypes_and_segmented_parquet(tmp_path: Path):
     assert payload["n_archetypes"] == 3
 
 
+def test_simulate_help():
+    from click.testing import CliRunner
+    from src.cli import cli
+    result = CliRunner().invoke(cli, ["simulate", "--help"])
+    assert result.exit_code == 0
+    assert "scenario" in result.output.lower()
+
+
 def test_cli_refresh_runs_full_chain(tmp_path: Path):
     runner = CliRunner()
     parquet = tmp_path / "sales.parquet"

@@ -161,6 +161,40 @@ def diagnose(kpis: Path, rules: Path, out: Path) -> None:
 
 
 @cli.command()
+@click.option("--parquet", type=click.Path(exists=True, path_type=Path), required=True,
+              help="Path to the segmented Parquet (with segment_id).")
+@click.option("--archetypes", type=click.Path(exists=True, path_type=Path), required=True,
+              help="Path to archetypes.json.")
+@click.option("--scenario", type=str, default="SC-BASE",
+              help="Scenario ID (SC-BASE, SC-L2a, etc.).")
+@click.option("--n-steps", type=int, default=36, help="Number of monthly steps.")
+@click.option("--n-replications", type=int, default=20, help="Monte Carlo replications.")
+@click.option("--seed", type=int, default=42)
+@click.option("--out", type=click.Path(path_type=Path), default=None,
+              help="Output JSON (default: data/processed/mesa_runs/<scenario>.json)")
+def simulate(parquet, archetypes, scenario, n_steps, n_replications, seed, out):
+    """Run a Mesa simulation scenario."""
+    import json as _json
+    from src.simulation.runner import run_scenario, write_run_result
+
+    click.echo(f"Loading data\u2026")
+    df = pd.read_parquet(parquet)
+    arch_payload = _json.loads(archetypes.read_text(encoding="utf-8"))
+
+    click.echo(f"Running {scenario} ({n_replications} reps \u00d7 {n_steps} months)\u2026")
+    result = run_scenario(
+        sales_df=df, archetypes_payload=arch_payload,
+        scenario_id=scenario, n_steps=n_steps,
+        n_replications=n_replications, seed=seed,
+    )
+    if out is None:
+        out = Path(f"data/processed/mesa_runs/{scenario}.json")
+    write_run_result(result, out)
+    click.echo(f"Wrote {out}")
+    click.echo(f"CA mean (month 1..{n_steps}): {result.ca_mean[0]:,.0f} \u2192 {result.ca_mean[-1]:,.0f}")
+
+
+@cli.command()
 @click.option(
     "--source",
     type=click.Path(exists=True, path_type=Path),
