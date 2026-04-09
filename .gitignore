@@ -20,6 +20,7 @@ build/
 data/processed/*.parquet
 data/processed/*.json
 !data/processed/.gitkeep
+data/processed/mesa_runs/
 
 # Superpowers brainstorming session artifacts
 .superpowers/
