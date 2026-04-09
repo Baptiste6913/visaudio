@@ -878,4 +878,177 @@ Cf. §2. Relire avant toute décision d'implémentation qui semble contradictoir
 
 ---
 
+## 15. Phase 2 — Couche IA analytique (Copilot / Azure OpenAI)
+
+> **Statut :** scope Phase 2 — documenté ici pour le pitch et la préparation technique.
+
+### 15.1 Vision
+
+En Phase 1, les diagnostics sont basés sur des règles heuristiques déclaratives (YAML). En Phase 2, une couche IA analytique transforme les KPIs et diagnostics en **narration business automatique** avec des suggestions d'optimisation directement traduites en scénarios Mesa simulables.
+
+**Flux Phase 2 :**
+
+```
+┌─────────────────┐
+│ KPIs + Diagnostics │  (kpis.json, diagnostics.json, archetypes.json)
+│   (Phase 1)        │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│  Azure OpenAI / Copilot     │  (sur le tenant Azure du client)
+│  GPT-4o + system prompt     │
+│  métier Visaudio            │
+└────────┬────────────────────┘
+         │
+         ▼  Structured output (JSON)
+┌─────────────────────────────┐
+│  Diagnostic narratif        │  "Votre magasin de Rampan sous-performe
+│  + Suggestions actionables  │   de 18% en PREMIUM sur les 50-65 ans.
+│                             │   Recommandation : formation ciblée..."
+└────────┬────────────────────┘
+         │
+         ▼  Traduction automatique en params scénario
+┌─────────────────────────────┐
+│  Scénario Mesa auto-généré  │  SC-L2a avec effort=1.25 sur archetype 0,
+│                             │  magasins = [Rampan, Coutances]
+└────────┬────────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│  Simulation Mesa            │  run_scenario() existant
+│  (batch runner P3)          │
+└────────┬────────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│  Dashboard Page 4           │  Analyse Copilot + suggestions +
+│  "Copilot Insights"        │  résultats simulation côte à côte
+└─────────────────────────────┘
+```
+
+### 15.2 Deux chemins d'intégration
+
+| | **Chemin A — Copilot Studio** | **Chemin B — Azure OpenAI API directe** |
+|---|---|---|
+| **Cible** | Expérience Teams-native | Intégration dashboard Visaudio |
+| **Stack** | Copilot Studio + connecteur custom (Power Platform) | Azure OpenAI SDK (`openai` Python) depuis FastAPI |
+| **Déploiement** | Tenant Azure du client, Copilot Studio low-code | Endpoint Azure OpenAI sur le tenant client, appelé par notre backend |
+| **UX** | Chat conversationnel dans Teams ("@Visaudio analyse Rampan") | Page 4 du dashboard avec panneau d'analyse auto |
+| **Avantage** | Adoption rapide (les équipes sont déjà dans Teams) | Contrôle total sur le rendu, intégration profonde avec Mesa |
+| **Inconvénient** | UI limitée au chat, pas de twin-curve charts | Nécessite un endpoint Azure OpenAI provisionné |
+| **Données exposées** | Via connecteur custom → nos endpoints GET existants | Appels directs à nos endpoints + structured output |
+| **Coût** | Copilot Studio licensing + tokens Azure OpenAI | Tokens Azure OpenAI uniquement |
+
+**Recommandation :** implémenter le chemin B en priorité (intégration dashboard — valeur immédiate pour la démo), puis proposer le chemin A en option d'adoption Teams.
+
+### 15.3 Chemin A — Copilot Studio + connecteur custom
+
+**Architecture :**
+
+1. **Connecteur custom (OpenAPI spec)** exposant nos 5 endpoints existants (GET /kpis, GET /archetypes, GET /diagnostics, GET /scenarios, POST /simulate) comme "actions" disponibles pour Copilot Studio.
+2. **Topic Copilot Studio** : "Analyse magasin" — l'utilisateur dit "@Visaudio analyse Rampan", Copilot appelle GET /kpis, filtre par magasin, envoie le contexte KPI au LLM, génère un diagnostic narratif.
+3. **Topic avancé** : "Simule un scénario" — Copilot appelle POST /simulate avec les params extraits de la conversation, affiche le résultat sous forme de carte adaptive.
+
+**Pré-requis :**
+- Nos endpoints FastAPI déployés et accessibles depuis le tenant Azure du client (via Azure App Service ou Container Instance)
+- Spécification OpenAPI exportée (`/openapi.json` — déjà fourni par FastAPI)
+- Connecteur custom Power Platform déclaré dans le tenant
+- Licence Copilot Studio (incluse dans certains plans M365)
+
+### 15.4 Chemin B — Azure OpenAI API directe depuis FastAPI
+
+**Architecture :**
+
+```
+Dashboard                  FastAPI                    Azure OpenAI
+   │                          │                           │
+   │  POST /copilot/analyze   │                           │
+   │  { store: "Rampan" }     │                           │
+   ├─────────────────────────▶│                           │
+   │                          │  1. Charge KPIs + diag    │
+   │                          │  2. Construit le prompt    │
+   │                          │     system + context       │
+   │                          │  3. POST chat/completions │
+   │                          ├──────────────────────────▶│
+   │                          │  4. Structured JSON output │
+   │                          │◀──────────────────────────┤
+   │                          │  5. Parse suggestions      │
+   │                          │  6. Traduit en scénarios   │
+   │                          │  7. run_scenario() ×N      │
+   │                          │  8. Assemble response      │
+   │  CopilotAnalysisResponse │                           │
+   │◀─────────────────────────┤                           │
+```
+
+**Nouveaux endpoints (Phase 2) :**
+
+| Méthode | Route | Input | Output |
+|---|---|---|---|
+| POST | `/copilot/analyze` | `{ store?: str, scope: "store"\|"network" }` | `CopilotAnalysisResponse` |
+| GET | `/copilot/history` | — | Liste des analyses passées |
+
+**`CopilotAnalysisResponse` (pydantic) :**
+
+```python
+class CopilotSuggestion(BaseModel):
+    title: str                          # "Formation PREMIUM à Rampan"
+    rationale: str                      # "Le taux de conversion..."
+    scenario_params: dict[str, Any]     # Traduit en params Mesa
+    simulation_result: SimulateResponse # Résultat de la simulation
+
+class CopilotAnalysisResponse(BaseModel):
+    store: str | None
+    scope: str
+    narrative: str                      # Diagnostic narratif complet
+    key_findings: list[str]             # Bullets résumé
+    suggestions: list[CopilotSuggestion]
+    generated_at: str
+    model_used: str                     # ex: "gpt-4o-2024-05-13"
+    tokens_used: int
+```
+
+**System prompt (ébauche) :**
+
+```
+Tu es un analyste optique expert. On te donne les KPIs et diagnostics
+d'un réseau de 6 magasins d'optique en Normandie. Ton rôle :
+
+1. Rédige un diagnostic narratif de 3-5 paragraphes pour {scope}.
+2. Identifie les 3 principales opportunités d'amélioration.
+3. Pour chaque opportunité, propose un scénario de simulation avec des
+   paramètres concrets (effort_commercial_level, price_multipliers, etc.)
+   au format JSON strict suivant :
+   { "scenario_base": "SC-L2a"|"SC-L1a"|..., "overrides": {...} }
+
+Contexte KPIs : {kpis_json}
+Diagnostics : {diagnostics_json}
+Archétypes : {archetypes_json}
+```
+
+### 15.5 Pré-requis techniques Phase 2
+
+| Élément | Statut Phase 1 | Action Phase 2 |
+|---|---|---|
+| KPIs + diagnostics en JSON | ✅ Livré (P1+P2) | Aucune |
+| Simulation Mesa | ✅ Livré (P3) | Aucune |
+| FastAPI + cache | ✅ Livré (P4) | Ajouter `/copilot/*` endpoints |
+| Azure OpenAI access | ❌ | Provisionner sur le tenant client |
+| OpenAPI spec exportable | ✅ (FastAPI auto) | Déclarer connecteur Power Platform |
+| Dashboard Page 4 | ❌ | Créer "Copilot Insights" page |
+| PostgreSQL | ❌ | Pour historiser les analyses Copilot |
+| Authentification | ❌ | Azure AD / MSAL pour sécuriser les endpoints |
+
+### 15.6 Risques Phase 2
+
+| Risque | Mitigation |
+|---|---|
+| Hallucinations du LLM sur les chiffres | System prompt contraignant + structured output JSON + validation pydantic |
+| Latence (LLM + Mesa combined) | Pré-calculer les scénarios standard, n'appeler le LLM que pour la narration |
+| Coût tokens sur gros contextes | Résumer les KPIs avant injection (top-10 findings, pas le JSON brut) |
+| Le client ne veut pas d'Azure OpenAI | Chemin A (Copilot Studio) comme alternative + plan B "diagnostic statique enrichi" |
+| Suggestions LLM non traduisibles en scénarios Mesa | Schéma JSON strict dans le prompt + validation + fallback sur les 6 scénarios standards |
+
+---
+
 **Fin du document.**
