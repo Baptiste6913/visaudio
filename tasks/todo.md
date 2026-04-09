@@ -7,6 +7,7 @@
 - [x] **P2 — Segmentation K-Means + Rules engine / diagnostics** (2026-04-08) — 13 commits, 111 tests green, CLI `refresh` umbrella (ingest → segment → kpi → diagnose) validée E2E sur `sample_500.xlsx`. Hero chiffre re-calibré sur 79K : **123 773 €/an** (+52 % vs P1). Voir `lessons.md` pour les 3 findings (sample-size, silhouette OOM, axes de labelling).
 - [x] **P3 — Simulation Mesa** (2026-04-09) — 11 commits, 158 tests green. ClientAgent + StoreAgent + VisaudioModel + 6 scénarios + batch runner + calibration + CLI `simulate`. E2E validé sur `sample_500.xlsx`.
 - [x] **P4 — Backend FastAPI** (2026-04-09) — 8 commits, 193 tests green. 6 endpoints (health, kpis, archetypes, diagnostics, scenarios, simulate), cache SHA-256, pré-chauffage 6 scénarios, CLI `serve`. E2E validé.
+- [x] **P5 — Dashboard React** (2026-04-09) — 9 commits, Vite build clean. 3 pages (Landing, Store drill-down, Simulation), 11 composants UI, 4 hooks, 4 charts Recharts, routing + multi-rôle.
 
 ## À faire (backlog)
 
@@ -37,13 +38,16 @@
 - [x] CLI `serve` subcommand (uvicorn)
 - [x] E2E test sur sample_500.xlsx
 
-### P5 — Dashboard React
-- [ ] Setup Vite + TS + Tailwind + Recharts + shadcn
-- [ ] Client `utils/api.ts` unifié
-- [ ] Page 1 — Landing Direction (hero card, KPI row, charts par magasin/segment)
-- [ ] Page 2 — Drill-down magasin (KPIs + diagnostic auto + waterfall + tabs)
-- [ ] Page 3 — Simulation Mesa (sliders, twin-curve plot, result box)
-- [ ] Multi-rôle (Direction / Manager) avec RoleSwitcher
+### P5 — Dashboard React (DONE)
+- [x] Vite + TS + Tailwind + Recharts scaffold
+- [x] Types TS, API client unifié, formatters, RoleContext
+- [x] Hooks (useKpis, useDiagnostics, useArchetypes, useSimulate)
+- [x] Composants partagés (Layout, KpiCard, HeroCard, FindingList, RoleSwitcher, StoreSelector)
+- [x] Charts Recharts (RevenueBar, MixPie, CiCurve, Waterfall)
+- [x] Page 1 — Landing Direction (hero + KPIs + opportunity charts)
+- [x] Page 2 — Drill-down magasin (KPIs + diagnostics + mix gamme + waterfall)
+- [x] Page 3 — Simulation Mesa (scenario selector + twin-curve CI + ΔCA result box)
+- [x] App routing + multi-rôle (Direction / Manager)
 
 ## Lessons à résoudre (deferred dans tasks/lessons.md)
 
