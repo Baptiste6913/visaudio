@@ -104,3 +104,93 @@ def test_effort_boost_shifts_gamme_distribution():
     probs = client._compute_gamme_probs(model.stores["Avranches"])
     # PREMIUM should be higher than base 0.15
     assert probs["PREMIUM"] > 0.15
+
+
+# -- Word-of-mouth tests --
+
+
+def test_client_has_contacts_and_boost_attrs(simple_archetype):
+    model = _make_model_with_store()
+    model.enable_word_of_mouth = True
+    client = ClientAgent(
+        model, archetype=simple_archetype,
+        home_store_name="Avranches", conventionnement="LIBRE",
+        age=55, last_purchase_step=-12,
+    )
+    assert hasattr(client, "contacts")
+    assert isinstance(client.contacts, list)
+    assert hasattr(client, "premium_boost")
+    assert client.premium_boost == 0.0
+
+
+def test_premium_purchase_boosts_contacts():
+    """After a Premium purchase, contacts should get a +0.10 premium_boost."""
+    always_premium = ArchetypeParams(
+        archetype_id=0, label="always_premium", n_clients=1,
+        purchase_interval_months=1.0, hazard_base=1.0,
+        gamme_distribution={"ESSENTIEL": 0.0, "CONFORT": 0.0, "PREMIUM": 1.0, "PRESTIGE": 0.0},
+        switch_prob=0.0, mean_ticket=200.0,
+    )
+    model = _make_model_with_store()
+    model.enable_word_of_mouth = True
+    model.current_step = 2
+
+    buyer = ClientAgent(
+        model, archetype=always_premium,
+        home_store_name="Avranches", conventionnement="LIBRE",
+        age=50, last_purchase_step=0,
+    )
+    contact = ClientAgent(
+        model, archetype=always_premium,
+        home_store_name="Avranches", conventionnement="LIBRE",
+        age=52, last_purchase_step=-24,
+    )
+    buyer.contacts = [contact]
+    buyer.step()
+    # Buyer purchased PREMIUM → contact gets +0.10
+    assert contact.premium_boost == pytest.approx(0.10)
+
+
+def test_premium_boost_increases_premium_prob(simple_archetype):
+    """A client with premium_boost > 0 should have higher PREMIUM probability."""
+    model = _make_model_with_store()
+    model.enable_word_of_mouth = True
+    model.current_step = 2
+    store = model.stores["Avranches"]
+
+    client = ClientAgent(
+        model, archetype=simple_archetype,
+        home_store_name="Avranches", conventionnement="LIBRE",
+        age=55, last_purchase_step=0,
+    )
+    probs_before = client._compute_gamme_probs(store)
+    client.premium_boost = 0.10
+    probs_after = client._compute_gamme_probs(store)
+    assert probs_after["PREMIUM"] > probs_before["PREMIUM"]
+
+
+def test_word_of_mouth_disabled_no_boost():
+    """With enable_word_of_mouth=False, purchases should NOT boost contacts."""
+    always_premium = ArchetypeParams(
+        archetype_id=0, label="always_premium", n_clients=1,
+        purchase_interval_months=1.0, hazard_base=1.0,
+        gamme_distribution={"ESSENTIEL": 0.0, "CONFORT": 0.0, "PREMIUM": 1.0, "PRESTIGE": 0.0},
+        switch_prob=0.0, mean_ticket=200.0,
+    )
+    model = _make_model_with_store()
+    model.enable_word_of_mouth = False
+    model.current_step = 2
+
+    buyer = ClientAgent(
+        model, archetype=always_premium,
+        home_store_name="Avranches", conventionnement="LIBRE",
+        age=50, last_purchase_step=0,
+    )
+    contact = ClientAgent(
+        model, archetype=always_premium,
+        home_store_name="Avranches", conventionnement="LIBRE",
+        age=52, last_purchase_step=-24,
+    )
+    buyer.contacts = [contact]
+    buyer.step()
+    assert contact.premium_boost == 0.0

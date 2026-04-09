@@ -57,3 +57,48 @@ def test_model_is_reproducible(archetypes_payload, mini_sales):
     assert len(log1) == len(log2)
     for s1, s2 in zip(log1, log2):
         assert s1 == s2
+
+
+# -- Word-of-mouth integration tests --
+
+
+def test_model_wom_enabled_builds_contacts(archetypes_payload, mini_sales):
+    model = VisaudioModel(
+        sales_df=mini_sales,
+        archetypes_payload=archetypes_payload,
+        n_steps=6,
+        seed=42,
+        enable_word_of_mouth=True,
+    )
+    from src.simulation.agents.client import ClientAgent
+    clients = list(model.agents_by_type[ClientAgent])
+    # At least some clients should have contacts
+    has_contacts = any(len(c.contacts) > 0 for c in clients)
+    assert has_contacts
+    # Contacts should be capped at 5
+    for c in clients:
+        assert len(c.contacts) <= 5
+
+
+def test_model_wom_disabled_no_contacts(archetypes_payload, mini_sales):
+    model = VisaudioModel(
+        sales_df=mini_sales,
+        archetypes_payload=archetypes_payload,
+        n_steps=6,
+        seed=42,
+        enable_word_of_mouth=False,
+    )
+    from src.simulation.agents.client import ClientAgent
+    clients = list(model.agents_by_type[ClientAgent])
+    for c in clients:
+        assert len(c.contacts) == 0
+
+
+def test_model_wom_default_is_true(archetypes_payload, mini_sales):
+    model = VisaudioModel(
+        sales_df=mini_sales,
+        archetypes_payload=archetypes_payload,
+        n_steps=6,
+        seed=42,
+    )
+    assert model.enable_word_of_mouth is True

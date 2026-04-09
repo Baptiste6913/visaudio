@@ -79,6 +79,10 @@ class ClientAgent(mesa.Agent):
             1.0, archetype.purchase_interval_months + noise
         )
 
+        # Word-of-mouth: contacts are populated by the model after init
+        self.contacts: list[ClientAgent] = []
+        self.premium_boost: float = 0.0
+
     # ------------------------------------------------------------------
     # Main step
     # ------------------------------------------------------------------
@@ -122,6 +126,15 @@ class ClientAgent(mesa.Agent):
 
         # 7. Record sale
         self._record_sale(store, gamme, ticket, current_step)
+
+        # 8. Word-of-mouth: boost contacts after Premium/Prestige purchase
+        if (
+            gamme in ("PREMIUM", "PRESTIGE")
+            and getattr(self.model, "enable_word_of_mouth", False)
+            and self.contacts
+        ):
+            for contact in self.contacts:
+                contact.premium_boost += 0.10
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -172,6 +185,11 @@ class ClientAgent(mesa.Agent):
         # Clamp to non-negative
         for g in GAMME_ORDERED:
             base_probs[g] = max(base_probs[g], 0.0)
+
+        # --- Word-of-mouth boost ---
+        if self.premium_boost > 0:
+            base_probs["PREMIUM"] *= 1.0 + self.premium_boost
+            base_probs["PRESTIGE"] *= 1.0 + self.premium_boost
 
         # --- Price elasticity modulation ---
         for g in GAMME_ORDERED:

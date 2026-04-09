@@ -40,11 +40,13 @@ class VisaudioModel(mesa.Model):
         n_steps: int = 36,
         seed: int = 42,
         store_overrides: dict[str, dict[str, Any]] | None = None,
+        enable_word_of_mouth: bool = True,
     ) -> None:
         super().__init__(rng=seed)
         self.n_steps: int = n_steps
         self.current_step: int = 0
         self.sales_log: list[dict] = []
+        self.enable_word_of_mouth: bool = enable_word_of_mouth
 
         # Load archetype parameters and seasonality from historical data
         self.archetype_params = load_archetypes_from_payload(archetypes_payload)
@@ -66,6 +68,10 @@ class VisaudioModel(mesa.Model):
 
         # Create ClientAgents from historical data
         self._init_clients(sales_df)
+
+        # Build word-of-mouth contact network
+        if self.enable_word_of_mouth:
+            self._build_contact_network()
 
     def _init_clients(self, df: pd.DataFrame) -> None:
         """Create one ClientAgent per historical client.
@@ -117,6 +123,30 @@ class VisaudioModel(mesa.Model):
                 age=age,
                 last_purchase_step=last_purchase_step,
             )
+
+    def _build_contact_network(self) -> None:
+        """Assign 3-5 contacts per client (same store, age ±10 years).
+
+        Simple list-based approach — no NetworkGrid. Each client gets a
+        random sample of eligible neighbours from their home store.
+        """
+        from collections import defaultdict
+
+        # Group clients by home store
+        clients_by_store: dict[str, list[ClientAgent]] = defaultdict(list)
+        for agent in self.agents_by_type[ClientAgent]:
+            clients_by_store[agent.home_store_name].append(agent)
+
+        for store_name, clients in clients_by_store.items():
+            for client in clients:
+                # Eligible contacts: same store, age within ±10, not self
+                eligible = [
+                    c for c in clients
+                    if c is not client and abs(c.age - client.age) <= 10
+                ]
+                n_contacts = min(self.random.randint(3, 5), len(eligible))
+                if n_contacts > 0:
+                    client.contacts = self.random.sample(eligible, n_contacts)
 
     def step(self) -> None:
         """Advance the simulation by one month.
