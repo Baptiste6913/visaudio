@@ -28,7 +28,7 @@ export default function StoreDrilldownPage() {
   // --- KPI extraction ---
   const caParMagasin = useMemo(
     () =>
-      kpisData?.cadrage?.ca_par_magasin as Record<string, number> | undefined,
+      kpisData?.cadrage?.par_magasin as Record<string, number> | undefined,
     [kpisData]
   );
 
@@ -42,7 +42,7 @@ export default function StoreDrilldownPage() {
 
   const h5ParMagasin = useMemo(
     () =>
-      kpisData?.hero?.h5_par_magasin as Record<string, number> | undefined,
+      kpisData?.hero?.opportunite_par_magasin as Record<string, number> | undefined,
     [kpisData]
   );
 
@@ -56,7 +56,7 @@ export default function StoreDrilldownPage() {
 
   const partPremiumPlusParMagasin = useMemo(
     () =>
-      kpisData?.hero?.part_premium_plus_par_magasin as
+      kpisData?.hero?.mix_premium_plus_par_magasin as
         | Record<string, number>
         | undefined,
     [kpisData]

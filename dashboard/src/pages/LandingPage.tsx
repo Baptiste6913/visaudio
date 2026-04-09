@@ -20,16 +20,19 @@ export default function LandingPage() {
 
   const magasinData = useMemo(() => {
     if (!data) return [];
-    return recordToChartData(
-      data.hero.h5_par_magasin as Record<string, unknown>
-    );
+    const rec = data.hero.opportunite_par_magasin as Record<string, number> | undefined;
+    return rec ? recordToChartData(rec) : [];
   }, [data]);
 
   const segmentData = useMemo(() => {
     if (!data) return [];
-    return recordToChartData(
-      data.hero.h5_par_segment as Record<string, unknown>
-    );
+    // opportunite_par_segment is a list of {segment, opportunite}
+    const list = data.hero.opportunite_par_segment as
+      | { segment: string; opportunite: number }[]
+      | undefined;
+    return list
+      ? list.map((s) => ({ name: `Segment ${s.segment}`, value: s.opportunite }))
+      : [];
   }, [data]);
 
   if (loading) {
@@ -52,9 +55,14 @@ export default function LandingPage() {
 
   const opportuniteUpsell = data.hero.opportunite_upsell_annuelle as number;
   const caTotal = data.cadrage.ca_total as number;
-  const panierMoyen = data.cadrage.panier_moyen_reseau as number;
+  const panierMoyen = data.cadrage.panier_moyen as number;
   const clientsUniques = data.cadrage.clients_uniques as number;
-  const partPremiumPlus = data.hero.part_premium_plus_reseau as number;
+
+  // Compute network-level part PREMIUM+ from per-store map
+  const mixPremium = data.hero.mix_premium_plus_par_magasin as Record<string, number> | undefined;
+  const partPremiumPlus = mixPremium
+    ? Object.values(mixPremium).reduce((a, b) => a + b, 0) / Math.max(Object.keys(mixPremium).length, 1)
+    : 0;
 
   return (
     <main className="flex flex-col gap-8 p-6 max-w-5xl mx-auto">
