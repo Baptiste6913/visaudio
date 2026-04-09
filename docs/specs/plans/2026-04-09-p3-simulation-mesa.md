@@ -1835,6 +1835,15 @@ git commit -m "chore: gitignore mesa_runs output directory"
 
 ---
 
+## Post-plan addition: Word-of-mouth mechanism
+
+Added after T11. Each client gets 3-5 contacts (same store, age ±10 years).
+After a Premium/Prestige purchase, contacts receive a +10% boost to their
+premium gamme propensity. Controlled by `enable_word_of_mouth=True/False`
+on `VisaudioModel` (default `True`). Can be disabled if it complicates calibration.
+
+---
+
 ## Summary of commits
 
 | # | Message | Files |
