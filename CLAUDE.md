@@ -23,6 +23,7 @@ Transformer l'Excel descriptif en outil prédictif/prescriptif :
 - Build frontend : `cd dashboard && npm install && npm run dev`
 - Tests : `pytest tests/ -v`
 - Lint : `ruff check src/` et `cd dashboard && npm run lint`
+- **Prérequis env** : `set OPENBLAS_NUM_THREADS=1` (évite le deadlock OpenBLAS avec numpy/scipy sur Windows)
 
 ## Conventions
 - Python : PEP8, type hints obligatoires, docstrings Google style
