@@ -5,7 +5,7 @@
 - [x] Initialisation de la structure du projet
 - [x] **P1 — Ingestion + KPI engine** (2026-04-08) — 15 commits, 68 tests green, CLI end-to-end validée sur 79 200 lignes réelles. Hero chiffre : 81 K€/an (à re-calibrer en P2 avec K-Means).
 - [x] **P2 — Segmentation K-Means + Rules engine / diagnostics** (2026-04-08) — 13 commits, 111 tests green, CLI `refresh` umbrella (ingest → segment → kpi → diagnose) validée E2E sur `sample_500.xlsx`. Hero chiffre re-calibré sur 79K : **123 773 €/an** (+52 % vs P1). Voir `lessons.md` pour les 3 findings (sample-size, silhouette OOM, axes de labelling).
-- [ ] **P3 — Simulation Mesa** (next)
+- [x] **P3 — Simulation Mesa** (2026-04-09) — 11 commits, 158 tests green. ClientAgent + StoreAgent + VisaudioModel + 6 scénarios + batch runner + calibration + CLI `simulate`. E2E validé sur `sample_500.xlsx`.
 
 ## À faire (backlog)
 
@@ -17,11 +17,14 @@
 - [x] Rules engine déclaratif (`src/rules/engine.py` + `rules.yaml`)
 - [x] Export `diagnostics.json` (findings par magasin)
 
-### P3 — Simulation Mesa
-- [ ] ClientAgent + StoreAgent + VisaudioModel
-- [ ] Calibration baseline sur 2023-2024, backtest 2025
-- [ ] Au minimum scénarios SC-BASE + SC-L2a (hero)
-- [ ] 4 scénarios supplémentaires si le budget le permet (SC-L2b, SC-L1a, SC-L4a, SC-L5a)
+### P3 — Simulation Mesa (DONE)
+- [x] ClientAgent + StoreAgent + VisaudioModel
+- [x] Archetype loader + seasonality extraction
+- [x] 6 scénarios (SC-BASE, SC-L2a, SC-L2b, SC-L1a, SC-L4a, SC-L5a)
+- [x] Batch runner avec CI 95% (N réplications Monte Carlo)
+- [x] Calibration + backtest utilities
+- [x] CLI `simulate` subcommand
+- [x] E2E test sur sample_500.xlsx
 
 ### P4 — Backend FastAPI
 - [ ] Endpoints `/health`, `/kpis`, `/archetypes`, `/diagnostics`, `/scenarios`, `/simulate`
