@@ -1,7 +1,7 @@
 /* Shared TypeScript types — mirrors backend pydantic models */
 
 export type ScenarioId =
-  | "SC-BASE" | "SC-L2a" | "SC-L2b" | "SC-L1a" | "SC-L4a" | "SC-L5a";
+  | "SC-BASE" | "SC-L2a" | "SC-L2b" | "SC-L1a" | "SC-L4a" | "SC-L5a" | "SC-CUSTOM";
 
 export interface Trajectory {
   months: number[];

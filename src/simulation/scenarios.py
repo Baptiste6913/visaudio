@@ -65,9 +65,9 @@ _register(ScenarioDef(
     scenario_id="SC-L2a",
     name="Effort commercial cible (HERO)",
     levier="L2",
-    description="+30% effort on archetype 0 across all 6 stores",
+    description="Effort commercial +50% sur les archetypes mid-tier (2-8) pour les 6 magasins",
     store_overrides=_all_stores_override(
-        effort_commercial_level={0: 1.3},
+        effort_commercial_level={2: 1.5, 3: 1.5, 4: 1.5, 5: 1.5, 6: 1.5, 7: 1.5, 8: 1.5},
     ),
 ))
 
@@ -118,6 +118,14 @@ _register(ScenarioDef(
             "PRESTIGE": 1.08,
         },
     ),
+))
+
+_register(ScenarioDef(
+    scenario_id="SC-CUSTOM",
+    name="Scenario personnalise",
+    levier="Custom",
+    description="Parametres definis par l'utilisateur",
+    store_overrides={},  # Overridden at runtime from params
 ))
 
 

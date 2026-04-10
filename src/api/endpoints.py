@@ -98,7 +98,50 @@ async def simulate(req: SimulateRequest) -> dict[str, Any]:
     df = pd.read_parquet(parquet_path)
     arch = json.loads(archetypes_path.read_text(encoding="utf-8"))
 
-    result = run_scenario(df, arch, req.scenario_id, req.n_steps, req.n_replications)
+    # For SC-CUSTOM, build store_overrides from params
+    if req.scenario_id == "SC-CUSTOM" and req.params:
+        from src.simulation.scenarios import STORE_NAMES, ScenarioDef
+        effort_val = float(req.params.get("effort", 1.0))
+        price_val = float(req.params.get("price_mult", 1.0))
+        target_archetypes = req.params.get("archetypes", list(range(10)))
+        target_stores = req.params.get("stores", STORE_NAMES)
+
+        effort_map = {int(a): effort_val for a in target_archetypes}
+        price_map = {}
+        if price_val != 1.0:
+            for g in ["ESSENTIEL", "CONFORT", "PREMIUM", "PRESTIGE"]:
+                price_map[g] = price_val
+
+        overrides = {
+            s: {"effort_commercial_level": effort_map, "price_multipliers": price_map}
+            for s in target_stores
+        }
+        from src.simulation.model import VisaudioModel
+        from src.simulation.metrics import extract_monthly_metrics
+        import numpy as np
+
+        all_ca: list[list[float]] = []
+        for rep in range(req.n_replications):
+            model = VisaudioModel(df, arch, req.n_steps, seed=42 + rep, store_overrides=overrides)
+            for _ in range(req.n_steps):
+                model.step()
+            metrics = extract_monthly_metrics(model.sales_log, req.n_steps)
+            all_ca.append(metrics["ca_reseau"])
+        ca_arr = np.array(all_ca)
+        from dataclasses import asdict as _asdict
+        from src.simulation.runner import RunResult
+        result = RunResult(
+            scenario_id="SC-CUSTOM", n_replications=req.n_replications,
+            n_steps=req.n_steps, months=list(range(1, req.n_steps + 1)),
+            ca_mean=np.mean(ca_arr, axis=0).round(2).tolist(),
+            ca_lower=(np.mean(ca_arr, axis=0) - 1.96 * np.std(ca_arr, axis=0, ddof=1) / np.sqrt(req.n_replications)).round(2).tolist() if req.n_replications > 1 else np.mean(ca_arr, axis=0).round(2).tolist(),
+            ca_upper=(np.mean(ca_arr, axis=0) + 1.96 * np.std(ca_arr, axis=0, ddof=1) / np.sqrt(req.n_replications)).round(2).tolist() if req.n_replications > 1 else np.mean(ca_arr, axis=0).round(2).tolist(),
+            ca_par_magasin_mean={}, mix_gamme_mean={},
+            panier_moyen_mean=[], n_transactions_mean=[],
+        )
+    else:
+        result = run_scenario(df, arch, req.scenario_id, req.n_steps, req.n_replications)
+
     baseline = (
         result if req.scenario_id == "SC-BASE"
         else run_scenario(df, arch, "SC-BASE", req.n_steps, req.n_replications)

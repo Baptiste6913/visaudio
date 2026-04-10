@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 VALID_SCENARIOS = Literal[
-    "SC-BASE", "SC-L2a", "SC-L2b", "SC-L1a", "SC-L4a", "SC-L5a"
+    "SC-BASE", "SC-L2a", "SC-L2b", "SC-L1a", "SC-L4a", "SC-L5a", "SC-CUSTOM"
 ]
 
 

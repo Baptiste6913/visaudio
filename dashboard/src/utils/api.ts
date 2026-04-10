@@ -53,10 +53,26 @@ export const simulate = (req: SimulateRequest) =>
 export async function uploadExcel(file: File): Promise<import("../types").UploadResult> {
   const form = new FormData();
   form.append("file", file);
-  const resp = await fetch(`${BASE}/upload`, { method: "POST", body: form });
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({ detail: resp.statusText }));
-    throw new Error(body.detail ?? `Upload failed: ${resp.status}`);
+  const controller = new AbortController();
+  // Upload + full pipeline can take minutes on large files
+  const timeout = setTimeout(() => controller.abort(), 300_000);
+  try {
+    const resp = await fetch(`${BASE}/upload`, {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new Error(body.detail ?? `Upload failed: ${resp.status}`);
+    }
+    return resp.json();
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error("Timeout — le pipeline prend trop de temps. Vérifiez le backend.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
   }
-  return resp.json();
 }

@@ -287,7 +287,7 @@ export default function SimulationPage() {
 
   // Interactive defaults — keep fast for the demo
   const N_STEPS = 12;
-  const N_REPS = 3;
+  const N_REPS = 10;
 
   // Auto-trigger the scenario from URL params (or SC-L2a) on mount
   useEffect(() => {
