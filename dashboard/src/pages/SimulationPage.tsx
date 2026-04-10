@@ -490,10 +490,12 @@ export default function SimulationPage() {
   const N_STEPS = 12;
   const N_REPS = 10;
 
-  // Auto-trigger the scenario from URL params (or SC-L2a) on mount
+  // Auto-trigger when scenario changes (predefined only — custom waits for "Lancer")
   useEffect(() => {
-    run({ scenario_id: initialScenario, n_steps: N_STEPS, n_replications: N_REPS });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (selectedScenario !== "SC-CUSTOM") {
+      run({ scenario_id: selectedScenario, n_steps: N_STEPS, n_replications: N_REPS });
+    }
+  }, [selectedScenario]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleRun() {
     if (selectedScenario === "SC-CUSTOM") {
