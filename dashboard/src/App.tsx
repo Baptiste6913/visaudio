@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 import LandingPage from "./pages/LandingPage";
 import StoreDrilldownPage from "./pages/StoreDrilldownPage";
 import SimulationPage from "./pages/SimulationPage";
+import AgentsPage from "./pages/AgentsPage";
 
 export default function App() {
   const [role, setRole] = useState<Role>("direction");
@@ -18,6 +19,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route index element={<LandingPage />} />
             <Route path="/store/:ville" element={<StoreDrilldownPage />} />
+            <Route path="/agents" element={<AgentsPage />} />
             <Route path="/simulation" element={<SimulationPage />} />
           </Route>
         </Routes>
