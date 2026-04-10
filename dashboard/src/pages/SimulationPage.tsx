@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import CiCurveChart from "../components/charts/CiCurveChart";
 import { useSimulate } from "../hooks/useSimulate";
 import { fmtKEur } from "../utils/format";
@@ -38,16 +39,18 @@ const SCENARIO_IDS: ScenarioId[] = [
 ];
 
 export default function SimulationPage() {
-  const [selectedScenario, setSelectedScenario] = useState<ScenarioId>("SC-L2a");
+  const [searchParams] = useSearchParams();
+  const initialScenario = (searchParams.get("scenario") as ScenarioId) || "SC-L2a";
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioId>(initialScenario);
   const { data, loading, error, run } = useSimulate();
 
   // Interactive defaults — keep fast for the demo
   const N_STEPS = 12;
   const N_REPS = 3;
 
-  // Auto-trigger SC-L2a on mount
+  // Auto-trigger the scenario from URL params (or SC-L2a) on mount
   useEffect(() => {
-    run({ scenario_id: "SC-L2a", n_steps: N_STEPS, n_replications: N_REPS });
+    run({ scenario_id: initialScenario, n_steps: N_STEPS, n_replications: N_REPS });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleRun() {
