@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Premium scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+/* Page transition */
+.page-enter { animation: slideUp 0.4s ease-out; }
+
+/* Glass card effect */
+.glass-card {
+  @apply bg-white/80 backdrop-blur-sm border border-gray-100 rounded-2xl shadow-sm;
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-brand-400;
+}

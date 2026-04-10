@@ -51,7 +51,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-6">
@@ -61,6 +61,9 @@ export default function Layout() {
               <nav className="flex items-center gap-1">
                 <Link to="/" className={navLinkClass("/")}>
                   Tableau de bord
+                </Link>
+                <Link to="/agents" className={navLinkClass("/agents")}>
+                  Agents
                 </Link>
                 <Link
                   to="/simulation"
@@ -185,8 +188,9 @@ export default function Layout() {
           </div>
         )}
       </header>
+      <div className="h-0.5 bg-gradient-to-r from-brand-500 via-brand-400 to-blue-400" />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="page-enter max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Outlet />
       </main>
     </div>

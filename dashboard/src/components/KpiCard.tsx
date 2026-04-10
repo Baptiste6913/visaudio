@@ -10,7 +10,7 @@ export default function KpiCard({ label, value, subtitle, delta }: KpiCardProps)
   const hasNegativeDelta = delta !== undefined && delta < 0;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 flex flex-col gap-1 min-w-0">
+    <div className="animate-slide-up bg-gradient-to-b from-white to-gray-50/50 rounded-lg shadow-sm border border-gray-100 border-l-4 border-l-brand-500 p-4 flex flex-col gap-1 min-w-0 hover:shadow-md transition-all duration-200">
       <span className="text-sm text-gray-500 truncate">{label}</span>
       <span className="text-2xl font-bold text-gray-900 leading-tight">{value}</span>
       {subtitle && (
