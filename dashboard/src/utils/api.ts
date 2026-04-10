@@ -49,3 +49,14 @@ export const simulate = (req: SimulateRequest) =>
     method: "POST",
     body: JSON.stringify(req),
   });
+
+export async function uploadExcel(file: File): Promise<import("../types").UploadResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const resp = await fetch(`${BASE}/upload`, { method: "POST", body: form });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(body.detail ?? `Upload failed: ${resp.status}`);
+  }
+  return resp.json();
+}

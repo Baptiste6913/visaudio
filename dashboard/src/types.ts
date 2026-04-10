@@ -65,13 +65,27 @@ export interface DiagnosticsPayload {
 }
 
 export interface Finding {
-  rule_id: string;
+  id: string;
   severity: string;
-  title: string;
   message: string;
   recommendation?: string;
-  value?: number;
-  threshold?: number;
+}
+
+export interface UploadResult {
+  status: string;
+  rows_imported: number;
+  rows_rejected: number;
+  clients: number;
+  archetypes: number;
+  message: string;
+}
+
+/** A recommended action with pre-filled simulation params. */
+export interface Recommendation {
+  title: string;
+  description: string;
+  scenario_id: ScenarioId;
+  gain_estimate?: string;
 }
 
 export interface StoreDiagnostics {

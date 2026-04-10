@@ -38,7 +38,7 @@ export default function FindingList({ findings }: FindingListProps) {
     <ul className="flex flex-col gap-3">
       {findings.map((f) => (
         <li
-          key={f.rule_id}
+          key={f.id}
           className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm"
         >
           <div className="flex items-start gap-3">
@@ -51,9 +51,6 @@ export default function FindingList({ findings }: FindingListProps) {
               {severityLabel(f.severity)}
             </span>
             <div className="flex flex-col gap-1 min-w-0">
-              <p className="font-medium text-gray-900 text-sm leading-snug">
-                {f.title}
-              </p>
               <p className="text-sm text-gray-600">{f.message}</p>
               {f.recommendation && (
                 <p className="text-xs text-gray-500 italic">
