@@ -6,8 +6,8 @@ import pytest
 from src.simulation.scenarios import SCENARIOS, get_scenario, ScenarioDef
 
 
-def test_six_scenarios_defined():
-    assert len(SCENARIOS) == 6
+def test_seven_scenarios_defined():
+    assert len(SCENARIOS) == 7
 
 
 def test_base_has_no_overrides():

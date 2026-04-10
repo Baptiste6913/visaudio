@@ -72,10 +72,10 @@ class TestE2EP4:
         assert resp.json()["n_archetypes"] == 6
 
     @pytest.mark.anyio
-    async def test_scenarios_returns_6(self, client):
+    async def test_scenarios_returns_7(self, client):
         resp = await client.get("/scenarios")
         assert resp.status_code == 200
-        assert len(resp.json()) == 6
+        assert len(resp.json()) == 7
 
     @pytest.mark.anyio
     async def test_simulate_baseline(self, client):

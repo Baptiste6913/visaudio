@@ -10,7 +10,7 @@ from src.api.prewarm import prewarm_scenarios, PREWARM_SCENARIOS
 
 
 def test_prewarm_scenarios_list():
-    assert len(PREWARM_SCENARIOS) == 6
+    assert len(PREWARM_SCENARIOS) == 7
     assert "SC-BASE" in PREWARM_SCENARIOS
     assert "SC-L2a" in PREWARM_SCENARIOS
 
@@ -48,4 +48,4 @@ def test_prewarm_writes_cache_files(tmp_path):
         prewarm_scenarios(data_dir=tmp_path, n_steps=3, n_replications=2)
 
     json_files = list(cache_dir.glob("*.json"))
-    assert len(json_files) == 6
+    assert len(json_files) == 7

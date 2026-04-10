@@ -39,10 +39,11 @@ async def test_get_scenarios(client):
     resp = await client.get("/scenarios")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body) == 6
+    assert len(body) == 7
     ids = {s["scenario_id"] for s in body}
     assert "SC-BASE" in ids
     assert "SC-L2a" in ids
+    assert "SC-CUSTOM" in ids
 
 
 # ---------- Task 4: POST /simulate tests ----------
