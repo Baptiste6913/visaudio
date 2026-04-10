@@ -4,6 +4,7 @@ import CiCurveChart from "../components/charts/CiCurveChart";
 import { useSimulate } from "../hooks/useSimulate";
 import { fmtKEur } from "../utils/format";
 import type { ScenarioId, SimulateResponse } from "../types";
+import { STORE_NAMES } from "../types";
 
 const SCENARIO_LABELS: Record<ScenarioId, string> = {
   "SC-BASE": "Baseline (pas d'intervention)",
@@ -12,6 +13,7 @@ const SCENARIO_LABELS: Record<ScenarioId, string> = {
   "SC-L1a": "Baisse PREMIUM -10%",
   "SC-L4a": "Campagne réactivation dormants",
   "SC-L5a": "Santéclair -10% (défensif)",
+  "SC-CUSTOM": "Scenario personnalise",
 };
 
 const SCENARIO_DESCRIPTIONS: Record<ScenarioId, string> = {
@@ -27,6 +29,8 @@ const SCENARIO_DESCRIPTIONS: Record<ScenarioId, string> = {
     "Campagne de réactivation SMS/email auprès des clients dormants (dernière visite > 24 mois).",
   "SC-L5a":
     "Réponse défensive à une baisse tarifaire Santéclair : réduction de 10 % pour maintenir le volume réseau.",
+  "SC-CUSTOM":
+    "Definissez vos propres parametres de simulation.",
 };
 
 const SCENARIO_IDS: ScenarioId[] = [
@@ -36,6 +40,7 @@ const SCENARIO_IDS: ScenarioId[] = [
   "SC-L1a",
   "SC-L4a",
   "SC-L5a",
+  "SC-CUSTOM",
 ];
 
 // ---------------------------------------------------------------------------
@@ -277,6 +282,194 @@ function ArchetypeBreakdown({ scenarioId }: { scenarioId: ScenarioId }) {
 }
 
 // ---------------------------------------------------------------------------
+// Custom scenario panel
+// ---------------------------------------------------------------------------
+const ARCHETYPE_IDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+
+interface CustomPanelProps {
+  effort: number;
+  setEffort: (v: number) => void;
+  priceMult: number;
+  setPriceMult: (v: number) => void;
+  targetArchetypes: number[];
+  setTargetArchetypes: (v: number[]) => void;
+  targetStores: string[];
+  setTargetStores: (v: string[]) => void;
+  horizon: number;
+  setHorizon: (v: number) => void;
+  reps: number;
+  setReps: (v: number) => void;
+}
+
+function CustomScenarioPanel({
+  effort,
+  setEffort,
+  priceMult,
+  setPriceMult,
+  targetArchetypes,
+  setTargetArchetypes,
+  targetStores,
+  setTargetStores,
+  horizon,
+  setHorizon,
+  reps,
+  setReps,
+}: CustomPanelProps) {
+  function toggleArchetype(id: number) {
+    setTargetArchetypes(
+      targetArchetypes.includes(id)
+        ? targetArchetypes.filter((a) => a !== id)
+        : [...targetArchetypes, id]
+    );
+  }
+
+  function toggleStore(name: string) {
+    setTargetStores(
+      targetStores.includes(name)
+        ? targetStores.filter((s) => s !== name)
+        : [...targetStores, name]
+    );
+  }
+
+  const pricePercent = Math.round((priceMult - 1) * 100);
+  const priceSign = pricePercent >= 0 ? "+" : "";
+
+  return (
+    <div className="mt-4 flex flex-col gap-5 rounded-xl border border-brand-200 bg-brand-50/40 p-4">
+      <h3 className="text-sm font-semibold text-brand-700 uppercase tracking-wide">
+        Parametres personnalises
+      </h3>
+
+      {/* Slider: Effort commercial */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-gray-700">
+          Effort commercial : <span className="font-bold text-brand-600">{effort.toFixed(1)}</span>
+        </label>
+        <input
+          type="range"
+          min="1.0"
+          max="2.0"
+          step="0.1"
+          value={effort}
+          onChange={(e) => setEffort(parseFloat(e.target.value))}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
+          aria-label="Effort commercial"
+        />
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>1.0</span>
+          <span>2.0</span>
+        </div>
+      </div>
+
+      {/* Slider: Variation prix */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-gray-700">
+          Variation prix : <span className="font-bold text-brand-600">{priceSign}{pricePercent} %</span>
+        </label>
+        <input
+          type="range"
+          min="0.8"
+          max="1.2"
+          step="0.05"
+          value={priceMult}
+          onChange={(e) => setPriceMult(parseFloat(e.target.value))}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
+          aria-label="Variation prix"
+        />
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>-20 %</span>
+          <span>+20 %</span>
+        </div>
+      </div>
+
+      {/* Multi-select: Archetypes cibles */}
+      <fieldset>
+        <legend className="text-sm font-medium text-gray-700 mb-2">
+          Archetypes cibles
+        </legend>
+        <div className="grid grid-cols-5 gap-2">
+          {ARCHETYPE_IDS.map((id) => (
+            <label key={id} className="flex items-center gap-1 text-xs text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={targetArchetypes.includes(id)}
+                onChange={() => toggleArchetype(id)}
+                className="accent-brand-600"
+                aria-label={`Archétype ${id}`}
+              />
+              <span>Archetype {id}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* Multi-select: Magasins cibles */}
+      <fieldset>
+        <legend className="text-sm font-medium text-gray-700 mb-2">
+          Magasins cibles
+        </legend>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {STORE_NAMES.map((name) => (
+            <label key={name} className="flex items-center gap-1 text-xs text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={targetStores.includes(name)}
+                onChange={() => toggleStore(name)}
+                className="accent-brand-600"
+                aria-label={name}
+              />
+              <span>{name}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* Slider: Horizon */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-gray-700">
+          Horizon : <span className="font-bold text-brand-600">{horizon} mois</span>
+        </label>
+        <input
+          type="range"
+          min="6"
+          max="36"
+          step="6"
+          value={horizon}
+          onChange={(e) => setHorizon(parseInt(e.target.value, 10))}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
+          aria-label="Horizon de simulation en mois"
+        />
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>6 mois</span>
+          <span>36 mois</span>
+        </div>
+      </div>
+
+      {/* Slider: Replications */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-gray-700">
+          Replications : <span className="font-bold text-brand-600">{reps}</span>
+        </label>
+        <input
+          type="range"
+          min="3"
+          max="20"
+          step="1"
+          value={reps}
+          onChange={(e) => setReps(parseInt(e.target.value, 10))}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
+          aria-label="Nombre de replications"
+        />
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>3</span>
+          <span>20</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 export default function SimulationPage() {
@@ -284,6 +477,14 @@ export default function SimulationPage() {
   const initialScenario = (searchParams.get("scenario") as ScenarioId) || "SC-L2a";
   const [selectedScenario, setSelectedScenario] = useState<ScenarioId>(initialScenario);
   const { data, loading, error, run } = useSimulate();
+
+  // Custom scenario params
+  const [effort, setEffort] = useState(1.3);
+  const [priceMult, setPriceMult] = useState(1.0);
+  const [targetArchetypes, setTargetArchetypes] = useState<number[]>([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const [targetStores, setTargetStores] = useState<string[]>([...STORE_NAMES]);
+  const [horizon, setHorizon] = useState(12);
+  const [reps, setReps] = useState(10);
 
   // Interactive defaults — keep fast for the demo
   const N_STEPS = 12;
@@ -295,7 +496,21 @@ export default function SimulationPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleRun() {
-    run({ scenario_id: selectedScenario, n_steps: N_STEPS, n_replications: N_REPS });
+    if (selectedScenario === "SC-CUSTOM") {
+      run({
+        scenario_id: "SC-CUSTOM",
+        params: {
+          effort,
+          price_mult: priceMult,
+          archetypes: targetArchetypes,
+          stores: targetStores,
+        },
+        n_steps: horizon,
+        n_replications: reps,
+      });
+    } else {
+      run({ scenario_id: selectedScenario, n_steps: N_STEPS, n_replications: N_REPS });
+    }
   }
 
   return (
@@ -348,10 +563,30 @@ export default function SimulationPage() {
           </button>
         </div>
 
-        {/* Scenario description */}
-        <p className="mt-3 text-sm text-gray-500 leading-relaxed">
-          {SCENARIO_DESCRIPTIONS[selectedScenario]}
-        </p>
+        {/* Scenario description — hidden for SC-CUSTOM, replaced by the panel */}
+        {selectedScenario !== "SC-CUSTOM" && (
+          <p className="mt-3 text-sm text-gray-500 leading-relaxed">
+            {SCENARIO_DESCRIPTIONS[selectedScenario]}
+          </p>
+        )}
+
+        {/* Custom scenario builder */}
+        {selectedScenario === "SC-CUSTOM" && (
+          <CustomScenarioPanel
+            effort={effort}
+            setEffort={setEffort}
+            priceMult={priceMult}
+            setPriceMult={setPriceMult}
+            targetArchetypes={targetArchetypes}
+            setTargetArchetypes={setTargetArchetypes}
+            targetStores={targetStores}
+            setTargetStores={setTargetStores}
+            horizon={horizon}
+            setHorizon={setHorizon}
+            reps={reps}
+            setReps={setReps}
+          />
+        )}
       </section>
 
       {/* Error state */}
