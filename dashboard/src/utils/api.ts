@@ -12,12 +12,31 @@ import type {
 const BASE = "/api";
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-  if (!resp.ok) throw new Error(`API ${resp.status}: ${resp.statusText}`);
-  return resp.json() as Promise<T>;
+  const headers: Record<string, string> = {};
+  if (init?.body) headers["Content-Type"] = "application/json";
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
+  try {
+    const resp = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: { ...headers, ...(init?.headers as Record<string, string>) },
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`API ${resp.status}: ${resp.statusText}`);
+    return (await resp.json()) as T;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error(
+        `Timeout sur ${path} — le backend (localhost:8000) ne répond pas. ` +
+          `Lancez : python -m src.cli serve --no-prewarm`
+      );
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export const getKpis = () => fetchJson<KpisPayload>("/kpis");

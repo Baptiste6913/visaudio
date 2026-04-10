@@ -41,13 +41,17 @@ export default function SimulationPage() {
   const [selectedScenario, setSelectedScenario] = useState<ScenarioId>("SC-L2a");
   const { data, loading, error, run } = useSimulate();
 
+  // Interactive defaults — keep fast for the demo
+  const N_STEPS = 12;
+  const N_REPS = 3;
+
   // Auto-trigger SC-L2a on mount
   useEffect(() => {
-    run({ scenario_id: "SC-L2a" });
+    run({ scenario_id: "SC-L2a", n_steps: N_STEPS, n_replications: N_REPS });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleRun() {
-    run({ scenario_id: selectedScenario });
+    run({ scenario_id: selectedScenario, n_steps: N_STEPS, n_replications: N_REPS });
   }
 
   return (
