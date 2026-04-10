@@ -257,7 +257,7 @@ def refresh(
 
 
 @cli.command()
-@click.option("--host", type=str, default="127.0.0.1", help="Bind host.")
+@click.option("--host", type=str, default="0.0.0.0", help="Bind host.")
 @click.option("--port", type=int, default=8000, help="Bind port.")
 @click.option("--data-dir", type=click.Path(exists=True, path_type=Path),
               default=Path("data/processed"), help="Path to processed data.")
