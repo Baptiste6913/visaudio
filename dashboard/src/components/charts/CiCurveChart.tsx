@@ -70,13 +70,14 @@ export default function CiCurveChart({
         >
           <XAxis
             dataKey="month"
+            tickFormatter={(v: number) => `M${v}`}
             label={{ value: "Mois", position: "insideBottomRight", offset: -4, fontSize: 11 }}
             tick={{ fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tickFormatter={fmtKEur}
+            tickFormatter={(v: number) => `${Math.round(v / 1000)} K€`}
             tick={{ fontSize: 11 }}
             axisLine={false}
             tickLine={false}
@@ -95,26 +96,20 @@ export default function CiCurveChart({
             cursor={{ stroke: "#e5e7eb" }}
           />
           <Legend
-            formatter={(value) => {
-              const labels: Record<string, string> = {
-                baseline: "Baseline",
-                intervention: "Intervention",
-                ci_lower: "",
-                ci_upper: "",
-              };
-              return (
-                <span className="text-xs text-gray-600">
-                  {labels[value] ?? value}
-                </span>
-              );
-            }}
+            payload={[
+              { value: "Baseline", type: "line", id: "baseline", color: "#9ca3af" },
+              { value: "Intervention", type: "line", id: "intervention", color: "#2563eb" },
+            ]}
+            formatter={(value) => (
+              <span className="text-xs text-gray-600">{value}</span>
+            )}
           />
 
           {/* CI band for intervention */}
           <Area
             dataKey="ci_upper"
             stroke="none"
-            fill="#1d4ed8"
+            fill="#2563eb"
             fillOpacity={0.15}
             legendType="none"
             activeDot={false}
@@ -142,8 +137,8 @@ export default function CiCurveChart({
           <Line
             type="monotone"
             dataKey="intervention"
-            stroke="#1d4ed8"
-            strokeWidth={2}
+            stroke="#2563eb"
+            strokeWidth={2.5}
             dot={false}
             name="intervention"
           />

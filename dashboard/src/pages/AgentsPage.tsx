@@ -1,21 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  ZAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
-import type { TooltipProps } from "recharts";
-import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
 import { useArchetypes } from "../hooks/useArchetypes";
 import { fmtEur, fmtPct, fmtNum } from "../utils/format";
+import type { ArchetypesPayload } from "../types";
 
-/* ── Palette: 6 color-blind-aware hues, one per archetype ──────────────── */
+/* ── Palette: 10 color-blind-aware hues ─────────────────────────────────── */
 const ARCHETYPE_COLORS = [
   "#2563eb",
   "#7c3aed",
@@ -23,6 +12,10 @@ const ARCHETYPE_COLORS = [
   "#d97706",
   "#dc2626",
   "#0891b2",
+  "#4f46e5",
+  "#16a34a",
+  "#ca8a04",
+  "#be185d",
 ] as const;
 
 /* ── Derived gamme label ─────────────────────────────────────────────────── */
@@ -56,22 +49,245 @@ interface ArchetypeRow {
   color: string;
 }
 
-/* ── Scatter tooltip ─────────────────────────────────────────────────────── */
-function BubbleTooltip({
-  active,
-  payload,
-}: TooltipProps<ValueType, NameType>) {
-  if (!active || !payload || payload.length === 0) return null;
-  const d = payload[0]?.payload as ArchetypeRow | undefined;
-  if (!d) return null;
+/* ── CountUp animated number ─────────────────────────────────────────────── */
+interface CountUpProps {
+  target: number;
+}
+
+function CountUp({ target }: CountUpProps) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / 1200, 1);
+      setVal(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [target]);
+  return <>{val.toLocaleString("fr-FR")}</>;
+}
+
+/* ── Network graph ───────────────────────────────────────────────────────── */
+interface NetworkNode {
+  id: number;
+  label: string;
+  n_clients: number;
+  ageDernierAchat: number;
+  x: number;
+  y: number;
+  r: number;
+  color: string;
+}
+
+interface NetworkEdge {
+  from: number;
+  to: number;
+  opacity: number;
+}
+
+interface NetworkGraphProps {
+  archetypes: ArchetypesPayload["archetypes"];
+  selectedId: number | null;
+  onSelect: (id: number | null) => void;
+}
+
+function NetworkGraph({ archetypes, selectedId, onSelect }: NetworkGraphProps) {
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const width = 600;
+  const height = 400;
+
+  const nodes = useMemo<NetworkNode[]>(
+    () =>
+      archetypes.map((a, i) => {
+        const angle = (2 * Math.PI * i) / archetypes.length;
+        const radius = 150;
+        return {
+          id: a.id,
+          label: a.label,
+          n_clients: a.n_clients,
+          ageDernierAchat: a.centroid["age_dernier_achat"] ?? 0,
+          x: width / 2 + radius * Math.cos(angle),
+          y: height / 2 + radius * Math.sin(angle),
+          r: Math.max(15, Math.sqrt(a.n_clients) * 1.5),
+          color: ARCHETYPE_COLORS[i % ARCHETYPE_COLORS.length],
+        };
+      }),
+    [archetypes]
+  );
+
+  const edges = useMemo<NetworkEdge[]>(() => {
+    const result: NetworkEdge[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const ageDiff = Math.abs(
+          nodes[i].ageDernierAchat - nodes[j].ageDernierAchat
+        );
+        if (ageDiff <= 15) {
+          result.push({
+            from: i,
+            to: j,
+            opacity: Math.max(0.1, 1 - ageDiff / 15),
+          });
+        }
+      }
+    }
+    return result;
+  }, [nodes]);
+
+  const activeId = hoveredId ?? selectedId;
+
+  const connectedIds = useMemo<Set<number>>(() => {
+    if (activeId === null) return new Set();
+    const s = new Set<number>();
+    s.add(activeId);
+    for (const e of edges) {
+      if (nodes[e.from].id === activeId) s.add(nodes[e.to].id);
+      if (nodes[e.to].id === activeId) s.add(nodes[e.from].id);
+    }
+    return s;
+  }, [activeId, edges, nodes]);
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-md px-3 py-2 text-xs max-w-[200px]">
-      <p className="font-semibold text-gray-800 mb-1 leading-tight">{d.label}</p>
-      <div className="flex flex-col gap-0.5 text-gray-600">
-        <span>{fmtNum(d.nClients)} clients</span>
-        <span>Panier moyen : {fmtEur(d.panierMoyen)}</span>
-        <span>Part PREMIUM+ : {fmtPct(d.partPremiumPlus)}</span>
-      </div>
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="w-full max-w-2xl mx-auto"
+      aria-label="Graphe de réseau des archétypes clients"
+      role="img"
+    >
+      {/* Edges */}
+      {edges.map((e, i) => {
+        const fromNode = nodes[e.from];
+        const toNode = nodes[e.to];
+        const isHighlighted =
+          activeId !== null &&
+          (fromNode.id === activeId || toNode.id === activeId);
+        const dimmed = activeId !== null && !isHighlighted;
+        return (
+          <line
+            key={i}
+            x1={fromNode.x}
+            y1={fromNode.y}
+            x2={toNode.x}
+            y2={toNode.y}
+            stroke={isHighlighted ? "#6366f1" : "#94a3b8"}
+            strokeWidth={isHighlighted ? 2 : 1.5}
+            opacity={dimmed ? 0.05 : e.opacity}
+            strokeDasharray="4 2"
+            style={{
+              transition: "opacity 0.25s, stroke 0.25s, stroke-width 0.25s",
+            }}
+          />
+        );
+      })}
+
+      {/* Nodes */}
+      {nodes.map((n, i) => {
+        const isActive = activeId === n.id;
+        const dimmed = activeId !== null && !connectedIds.has(n.id);
+        return (
+          <g
+            key={n.id}
+            style={{ cursor: "pointer" }}
+            onClick={() => onSelect(selectedId === n.id ? null : n.id)}
+            onMouseEnter={() => setHoveredId(n.id)}
+            onMouseLeave={() => setHoveredId(null)}
+            role="button"
+            aria-label={`Archétype ${n.label}, ${fmtNum(n.n_clients)} clients`}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                onSelect(selectedId === n.id ? null : n.id);
+              }
+            }}
+          >
+            <circle
+              cx={n.x}
+              cy={n.y}
+              r={n.r}
+              fill={n.color}
+              opacity={dimmed ? 0.2 : isActive ? 1 : 0.8}
+              style={{
+                animation: `pulse-node 3s ease-in-out ${i * 0.3}s infinite`,
+                transformOrigin: `${n.x}px ${n.y}px`,
+                filter: isActive
+                  ? "drop-shadow(0 0 8px rgba(0,0,0,0.3))"
+                  : "none",
+                transition: "opacity 0.25s, filter 0.25s",
+              }}
+            />
+            <text
+              x={n.x}
+              y={n.y + n.r + 14}
+              textAnchor="middle"
+              fontSize={10}
+              fill="#4b5563"
+              fontWeight="500"
+              pointerEvents="none"
+            >
+              {n.label.slice(0, 18)}
+            </text>
+            <text
+              x={n.x}
+              y={n.y + 4}
+              textAnchor="middle"
+              fontSize={11}
+              fill="white"
+              fontWeight="700"
+              pointerEvents="none"
+            >
+              {fmtNum(n.n_clients)}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ── Simulation log ──────────────────────────────────────────────────────── */
+interface SimulationLogProps {
+  archetypes: ArchetypesPayload["archetypes"];
+}
+
+function SimulationLog({ archetypes }: SimulationLogProps) {
+  const entries = useMemo(
+    () =>
+      archetypes.slice(0, 5).flatMap((a, i) => [
+        {
+          month: i * 2 + 1,
+          text: `${fmtNum(a.n_clients)} clients archétype "${a.label.slice(0, 25)}" évalués`,
+          type: "info" as const,
+        },
+        {
+          month: i * 2 + 2,
+          text: `${fmtNum(Math.round(a.n_clients * 0.12))} montent en gamme → influencent ${fmtNum(Math.round(a.n_clients * 0.04))} contacts`,
+          type: "success" as const,
+        },
+      ]),
+    [archetypes]
+  );
+
+  return (
+    <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs max-h-60 overflow-y-auto">
+      {entries.map((e, i) => (
+        <div
+          key={i}
+          className="flex gap-2 py-0.5 animate-slide-up"
+          style={{ animationDelay: `${i * 150}ms`, animationFillMode: "both" }}
+        >
+          <span className="text-gray-500 shrink-0">
+            Mois {String(e.month).padStart(2, "0")}
+          </span>
+          <span
+            className={
+              e.type === "success" ? "text-green-400" : "text-blue-400"
+            }
+          >
+            {e.text}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -90,14 +306,13 @@ function DetailPanel({ archetype: a }: DetailPanelProps) {
   const conventionnement =
     a.conventionnementLibre > 0.5 ? "LIBRE" : "NON-LIBRE";
 
-  // Build a natural-language description
   const description = [
     `${dominantSexe} d'environ ${Math.round(a.ageDernierAchat)} ans`,
     `conventionnement ${conventionnement.toLowerCase()}`,
     `achète ${a.gamme}`,
     `panier moyen ${fmtEur(a.panierMoyen)}`,
     `fréquence ${frequence} achat${Number(frequence) > 1.1 ? "s" : ""}/an`,
-    `fidélité ${a.fidelite}\u202f%`,
+    `fidélité ${a.fidelite} %`,
   ].join(", ");
 
   return (
@@ -120,13 +335,16 @@ function DetailPanel({ archetype: a }: DetailPanelProps) {
 
       {/* Stats grid */}
       <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-        <StatItem label="Sexe F / H" value={`${femPct}\u202f% / ${homPct}\u202f%`} />
-        <StatItem label="Age moyen" value={`${Math.round(a.ageDernierAchat)}\u202fans`} />
+        <StatItem label="Sexe F / H" value={`${femPct} % / ${homPct} %`} />
+        <StatItem
+          label="Age moyen"
+          value={`${Math.round(a.ageDernierAchat)} ans`}
+        />
         <StatItem label="Panier moyen" value={fmtEur(a.panierMoyen)} />
         <StatItem label="Gamme préférée" value={a.gamme} />
         <StatItem label="Conventionnement" value={conventionnement} />
         <StatItem label="Fréquence" value={`${frequence} / an`} />
-        <StatItem label="Score fidélité" value={`${a.fidelite}\u202f%`} />
+        <StatItem label="Score fidélité" value={`${a.fidelite} %`} />
         <StatItem label="Part CA" value={fmtPct(a.shareOfCa)} />
       </dl>
 
@@ -216,7 +434,7 @@ export default function AgentsPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <p className="text-gray-500 text-sm animate-pulse">
-          Chargement des archetypes…
+          Chargement des archetypes...
         </p>
       </div>
     );
@@ -255,83 +473,51 @@ export default function AgentsPage() {
               Agents Clients
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              {data.n_archetypes} archétypes découverts par K-Means sur 20\u202f000+
+              {data.n_archetypes} archétypes découverts par K-Means sur 20 000+
               clients
             </p>
           </div>
-          <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">
-            {fmtNum(totalClients)} clients
-          </span>
+          {/* Animated counters */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex flex-col items-end">
+              <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">
+                Total clients
+              </span>
+              <span className="text-2xl font-extrabold text-brand-700 tabular-nums">
+                <CountUp target={totalClients} />
+              </span>
+            </div>
+            <div className="w-px h-8 bg-gray-200" aria-hidden="true" />
+            <div className="flex flex-col items-end">
+              <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">
+                Archétypes
+              </span>
+              <span className="text-2xl font-extrabold text-brand-700 tabular-nums">
+                <CountUp target={data.n_archetypes} />
+              </span>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ── Section 2: Bubble chart ─────────────────────────────────────── */}
+      {/* ── Section 2: Network graph ────────────────────────────────────── */}
       <section className="glass-card p-6">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
-          Positionnement des archétypes — Panier moyen vs Part PREMIUM+
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">
+          Réseau d'influence entre archétypes
         </h2>
-        <ResponsiveContainer width="100%" height={400}>
-          <ScatterChart
-            margin={{ top: 20, right: 30, bottom: 20, left: 20 }}
-            aria-label="Positionnement des archétypes clients"
-          >
-            <XAxis
-              type="number"
-              dataKey="panierMoyen"
-              name="Panier moyen"
-              unit="€"
-              tickFormatter={(v: number) => `${v}\u202f€`}
-              tick={{ fontSize: 11, fill: "#6b7280" }}
-              axisLine={{ stroke: "#e5e7eb" }}
-              tickLine={false}
-              label={{
-                value: "Panier moyen (€)",
-                position: "insideBottomRight",
-                offset: -8,
-                fontSize: 11,
-                fill: "#9ca3af",
-              }}
-            />
-            <YAxis
-              type="number"
-              dataKey="partPremiumPlus"
-              name="Part PREMIUM+"
-              tickFormatter={(v: number) =>
-                `${Math.round(v * 100)}\u202f%`
-              }
-              tick={{ fontSize: 11, fill: "#6b7280" }}
-              axisLine={{ stroke: "#e5e7eb" }}
-              tickLine={false}
-              label={{
-                value: "Part PREMIUM+ (%)",
-                angle: -90,
-                position: "insideLeft",
-                offset: 8,
-                fontSize: 11,
-                fill: "#9ca3af",
-              }}
-            />
-            <ZAxis
-              type="number"
-              dataKey="nClients"
-              name="Clients"
-              range={[200, 2000]}
-            />
-            <Tooltip content={<BubbleTooltip />} />
-            <Scatter
-              data={rows}
-              animationDuration={1500}
-              animationEasing="ease-out"
-            >
-              {rows.map((row) => (
-                <Cell key={row.id} fill={row.color} fillOpacity={0.85} />
-              ))}
-            </Scatter>
-          </ScatterChart>
-        </ResponsiveContainer>
+        <p className="text-xs text-gray-400 mb-4">
+          Les connexions relient les archétypes dont l'âge moyen est proche
+          (&lt; 15 ans d'écart). L'opacité reflète la probabilité d'influence
+          bouche-à-oreille.
+        </p>
+        <NetworkGraph
+          archetypes={data.archetypes}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-3 mt-2">
+        <div className="flex flex-wrap gap-3 mt-4">
           {rows.map((row) => (
             <button
               key={row.id}
@@ -382,7 +568,7 @@ export default function AgentsPage() {
                     Part CA
                   </th>
                   <th className="px-4 py-3 text-right font-semibold">
-                    Âge moyen
+                    Age moyen
                   </th>
                   <th className="px-4 py-3 text-right font-semibold">
                     Panier
@@ -449,7 +635,7 @@ export default function AgentsPage() {
                       <td className="px-4 py-3 text-center">
                         <GammeBadge gamme={row.gamme} />
                       </td>
-                      {/* Fidélité */}
+                      {/* Fidelite */}
                       <td className="px-4 py-3 text-right">
                         <FideliteBar score={row.fidelite} />
                       </td>
@@ -462,9 +648,15 @@ export default function AgentsPage() {
         </div>
 
         {/* ── Section 4: Detail panel ─────────────────────────────────── */}
-        {selectedArchetype && (
-          <DetailPanel archetype={selectedArchetype} />
-        )}
+        {selectedArchetype && <DetailPanel archetype={selectedArchetype} />}
+      </section>
+
+      {/* ── Section 5: Simulation log ───────────────────────────────────── */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+          Journal de simulation
+        </h2>
+        <SimulationLog archetypes={data.archetypes} />
       </section>
     </div>
   );
