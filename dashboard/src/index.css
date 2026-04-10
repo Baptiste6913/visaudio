@@ -19,3 +19,19 @@
 .gradient-text {
   @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-brand-400;
 }
+
+/* Network graph node pulse */
+@keyframes pulse-node {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Simulation log entry slide-up */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.35s ease-out;
+}
