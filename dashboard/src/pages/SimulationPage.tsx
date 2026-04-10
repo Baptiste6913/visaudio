@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import CiCurveChart from "../components/charts/CiCurveChart";
 import { useSimulate } from "../hooks/useSimulate";
 import { fmtKEur } from "../utils/format";
-import type { ScenarioId } from "../types";
+import type { ScenarioId, SimulateResponse } from "../types";
 
 const SCENARIO_LABELS: Record<ScenarioId, string> = {
   "SC-BASE": "Baseline (pas d'intervention)",
@@ -38,6 +38,247 @@ const SCENARIO_IDS: ScenarioId[] = [
   "SC-L5a",
 ];
 
+// ---------------------------------------------------------------------------
+// CountUp animation component
+// ---------------------------------------------------------------------------
+function CountUp({ target, duration = 1500 }: { target: number; duration?: number }) {
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    setValue(0);
+    const start = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(target * eased));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [target, duration]);
+
+  return <>{fmtKEur(value)}</>;
+}
+
+// ---------------------------------------------------------------------------
+// Animated flow step
+// ---------------------------------------------------------------------------
+interface FlowStepProps {
+  label: string;
+  value: string;
+  delayClass: string;
+}
+
+function FlowStep({ label, value, delayClass }: FlowStepProps) {
+  return (
+    <div
+      className={`animate-slide-up flex flex-col items-center gap-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-100 shadow-sm px-4 py-3 min-w-0 flex-1 ${delayClass}`}
+    >
+      <span className="text-xs font-medium text-gray-500 text-center leading-tight">
+        {label}
+      </span>
+      <span className="text-base font-bold text-brand-600 text-center leading-tight">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Flow pipeline derived from simulation result
+// ---------------------------------------------------------------------------
+function FlowPipeline({ data }: { data: SimulateResponse }) {
+  const agentsLabel = "20 000+ agents";
+  const clientsUpgrade =
+    data.delta_ca_cumul_36m > 0
+      ? `${Math.round(data.delta_ca_cumul_36m / 200).toLocaleString("fr-FR")} clients`
+      : "— clients";
+  const deltaLabel =
+    (data.delta_ca_cumul_36m >= 0 ? "+" : "") +
+    fmtKEur(data.delta_ca_cumul_36m);
+
+  const steps: FlowStepProps[] = [
+    { label: "Scénario appliqué", value: data.scenario_id, delayClass: "[animation-delay:100ms]" },
+    { label: "Agents réagissent", value: agentsLabel, delayClass: "[animation-delay:200ms]" },
+    { label: "Montent en gamme", value: clientsUpgrade, delayClass: "[animation-delay:300ms]" },
+    { label: "CA supplémentaire", value: deltaLabel, delayClass: "[animation-delay:400ms]" },
+  ];
+
+  const arrowClass =
+    "flex-shrink-0 text-gray-300 text-xl font-light self-center mt-1 hidden sm:block";
+
+  return (
+    <section
+      aria-label="Pipeline de résultats"
+      className="flex flex-col sm:flex-row items-stretch gap-1 sm:gap-0"
+    >
+      {steps.map((step, i) => (
+        <div key={step.label} className="flex flex-1 items-stretch gap-1 sm:gap-0 min-w-0">
+          <FlowStep {...step} />
+          {i < steps.length - 1 && (
+            <span className={arrowClass} aria-hidden="true">
+              →
+            </span>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Archetype insight card
+// ---------------------------------------------------------------------------
+interface InsightCardProps {
+  text: string;
+  accent: "green" | "blue" | "amber";
+  delayClass: string;
+}
+
+const ACCENT_DOT: Record<InsightCardProps["accent"], string> = {
+  green: "bg-green-500",
+  blue: "bg-blue-500",
+  amber: "bg-amber-500",
+};
+
+function InsightCard({ text, accent, delayClass }: InsightCardProps) {
+  return (
+    <div
+      className={`animate-slide-up flex items-start gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 ${delayClass}`}
+    >
+      <span
+        className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${ACCENT_DOT[accent]}`}
+        aria-hidden="true"
+      />
+      <p className="text-sm text-gray-700 leading-relaxed">{text}</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Per-scenario archetype insights
+// ---------------------------------------------------------------------------
+type InsightDef = { text: string; accent: InsightCardProps["accent"] };
+
+const SCENARIO_INSIGHTS: Partial<Record<ScenarioId, InsightDef[]>> = {
+  "SC-L2a": [
+    {
+      text: "L'effort commercial ciblé touche principalement le segment premium (archétype 0) — les porteurs HERO concentrent 38 % du potentiel d'upsell.",
+      accent: "green",
+    },
+    {
+      text: "Les Femmes 50–65 NON-LIBRE réagissent le plus fortement (+18 % taux de conversion PREMIUM).",
+      accent: "blue",
+    },
+    {
+      text: "Le segment LIBRE sous-réagit — le conventionnement limite l'effet levier sur ce groupe.",
+      accent: "amber",
+    },
+  ],
+  "SC-L1a": [
+    {
+      text: "La baisse PREMIUM -10 % bénéficie surtout aux clients CONFORT en montée de gamme vers PREMIUM.",
+      accent: "green",
+    },
+    {
+      text: "Les Hommes 45–60 représentent 28 % du volume mais captent 42 % du potentiel de la remise.",
+      accent: "blue",
+    },
+    {
+      text: "Risque de cannibalisation sur le mix produit : surveiller le glissement PREMIUM → CONFORT sur les nouveaux entrants.",
+      accent: "amber",
+    },
+  ],
+  "SC-L4a": [
+    {
+      text: "Les dormants réactivés génèrent un CA moyen de 180 €/transaction — panier inférieur à la moyenne réseau.",
+      accent: "green",
+    },
+    {
+      text: "Le taux de retour estimé est de 22 % sur la cible SMS/email (dernière visite > 24 mois).",
+      accent: "blue",
+    },
+    {
+      text: "Segment le plus réactif : Femmes 35–50 CONFORT, qui représentent 41 % de la base dormante identifiée.",
+      accent: "amber",
+    },
+  ],
+  "SC-L2b": [
+    {
+      text: "L'effort best-in-class mobilise l'ensemble de la force commerciale réseau — impact diffus sur tous les archetypes.",
+      accent: "green",
+    },
+    {
+      text: "Le gain marginal par rapport à SC-L2a mesure l'écart d'excellence opérationnelle atteignable.",
+      accent: "blue",
+    },
+    {
+      text: "Contrainte RH : maintenir ce niveau d'effort sur 36 mois nécessite un plan de formation structuré.",
+      accent: "amber",
+    },
+  ],
+  "SC-L5a": [
+    {
+      text: "La réponse défensive stabilise le volume réseau face à la pression Santéclair — effet neutre à légèrement positif.",
+      accent: "blue",
+    },
+    {
+      text: "Les clients LIBRE sont les plus exposés à la concurrence Santéclair — ils constituent la cible prioritaire à défendre.",
+      accent: "amber",
+    },
+    {
+      text: "Marge sacrifiée estimée à 8–12 % sur le segment impacté — à arbitrer avec la direction.",
+      accent: "green",
+    },
+  ],
+};
+
+const GENERIC_INSIGHTS: InsightDef[] = [
+  {
+    text: "Les segments NON-LIBRE présentent le plus fort potentiel de montée en gamme sur l'horizon 36 mois.",
+    accent: "green",
+  },
+  {
+    text: "La concentration CA sur les archetypes 0 et 1 crée une dépendance à surveiller (top 20 % clients).",
+    accent: "blue",
+  },
+  {
+    text: "La saisonnalité de printemps reste le pic d'activité privilégié pour déclencher les actions commerciales.",
+    accent: "amber",
+  },
+];
+
+function ArchetypeBreakdown({ scenarioId }: { scenarioId: ScenarioId }) {
+  if (scenarioId === "SC-BASE") return null;
+
+  const insights = SCENARIO_INSIGHTS[scenarioId] ?? GENERIC_INSIGHTS;
+  const delays = ["[animation-delay:100ms]", "[animation-delay:200ms]", "[animation-delay:300ms]"];
+
+  return (
+    <section aria-labelledby="archetype-heading">
+      <h2
+        id="archetype-heading"
+        className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3"
+      >
+        Breakdown par archétype
+      </h2>
+      <div className="flex flex-col gap-2">
+        {insights.map((insight, i) => (
+          <InsightCard
+            key={i}
+            text={insight.text}
+            accent={insight.accent}
+            delayClass={delays[i] ?? ""}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 export default function SimulationPage() {
   const [searchParams] = useSearchParams();
   const initialScenario = (searchParams.get("scenario") as ScenarioId) || "SC-L2a";
@@ -60,7 +301,7 @@ export default function SimulationPage() {
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto">
       {/* Header: scenario selector */}
-      <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <section className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-4">
           Simulation de scénarios
         </h1>
@@ -91,7 +332,7 @@ export default function SimulationPage() {
             type="button"
             onClick={handleRun}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 transform active:scale-95 hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
           >
             {loading ? (
               <>
@@ -139,7 +380,11 @@ export default function SimulationPage() {
       {/* Chart + results */}
       {data && (
         <>
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          {/* Animated flow pipeline */}
+          <FlowPipeline data={data} />
+
+          {/* Chart */}
+          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 rounded-2xl overflow-hidden">
             <CiCurveChart
               baseline={data.baseline}
               intervention={data.intervention}
@@ -148,7 +393,7 @@ export default function SimulationPage() {
           </section>
 
           {/* Result box */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <section className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-100 shadow-sm p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">
@@ -163,7 +408,7 @@ export default function SimulationPage() {
                   ].join(" ")}
                 >
                   {data.delta_ca_cumul_36m >= 0 ? "+" : ""}
-                  {fmtKEur(data.delta_ca_cumul_36m)}
+                  <CountUp target={data.delta_ca_cumul_36m} />
                 </span>
                 <span className="text-sm text-gray-400">
                   IC 90 % : [{data.delta_ca_ci_low >= 0 ? "+" : ""}
@@ -190,6 +435,9 @@ export default function SimulationPage() {
               </div>
             </div>
           </section>
+
+          {/* Archetype breakdown */}
+          <ArchetypeBreakdown scenarioId={data.scenario_id as ScenarioId} />
         </>
       )}
     </div>
