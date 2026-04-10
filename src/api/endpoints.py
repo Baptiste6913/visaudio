@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import json
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
 
 from src.api.schemas import ScenarioInfo, SimulateRequest, SimulateResponse, Trajectory
 from src.simulation.scenarios import SCENARIOS
@@ -114,6 +117,62 @@ async def simulate(req: SimulateRequest) -> dict[str, Any]:
 
     write_cache(key, result_dict, cache_dir=cache_dir)
     return _build_response(result_dict, req, from_cache=False)
+
+
+@router.post("/upload")
+async def upload_excel(file: UploadFile) -> JSONResponse:
+    """Accept an Excel file, run the full pipeline, return summary."""
+    if _data_dir is None:
+        raise HTTPException(status_code=503, detail="Server not initialized")
+    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="Le fichier doit être un .xlsx ou .xls")
+
+    # Save uploaded file to a temp location
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        from src.ingestion.excel_parser import read_visaudio_excel
+        from src.ingestion.normalization import normalize_dataframe, write_parquet
+        from src.segmentation.pipeline import run_segmentation, write_archetypes_json
+        from src.kpi.pipeline import write_kpis_json
+        from src.rules.diagnostics import build_diagnostics_payload, write_diagnostics_json
+
+        # 1. Ingest
+        raw = read_visaudio_excel(tmp_path)
+        df, rejected = normalize_dataframe(raw, return_rejected=True)
+        parquet_path = _data_dir / "sales.parquet"
+        write_parquet(df, parquet_path)
+
+        # 2. Segment
+        df_seg, arch_payload = run_segmentation(df, n_clusters=6)
+        write_parquet(df_seg, parquet_path)
+        write_archetypes_json(arch_payload, _data_dir / "archetypes.json")
+
+        # 3. KPIs
+        write_kpis_json(df_seg, _data_dir / "kpis.json")
+
+        # 4. Diagnostics
+        kpis = json.loads((_data_dir / "kpis.json").read_text(encoding="utf-8"))
+        diag_payload = build_diagnostics_payload(kpis)
+        write_diagnostics_json(diag_payload, _data_dir / "diagnostics.json")
+
+        return JSONResponse(content={
+            "status": "ok",
+            "rows_imported": len(df),
+            "rows_rejected": len(rejected),
+            "clients": int(df["id_client"].nunique()),
+            "archetypes": arch_payload["n_archetypes"],
+            "message": f"Pipeline complet : {len(df)} lignes importées, "
+                       f"{int(df['id_client'].nunique())} clients, "
+                       f"{arch_payload['n_archetypes']} archétypes.",
+        })
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Erreur pipeline : {e}") from e
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 def _build_response(
